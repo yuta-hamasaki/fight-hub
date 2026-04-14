@@ -1,0 +1,234 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CLIENT
+  TRAINER
+  ADMIN
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELED
+}
+
+enum PurchaseStatus {
+  ACTIVE
+  CANCELED
+  EXPIRED
+  PAST_DUE
+}
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model User {
+  id                   String                 @id @default(cuid())
+  clerkUserId          String                 @unique
+  email                String?                @unique
+  role                 UserRole               @default(CLIENT)
+  isActive             Boolean                @default(true)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  profile              Profile?
+  trainerProfile       TrainerProfile?
+  contentPosts         ContentPost[]
+  sessionOfferings     SessionOffering[]
+  clientBookings       Booking[]              @relation("ClientBookings")
+  trainerBookings      Booking[]              @relation("TrainerBookings")
+  subscriptionPurchases SubscriptionPurchase[]
+  reviewsGiven         Review[]               @relation("Reviewer")
+  reviewsReceived      Review[]               @relation("ReviewTarget")
+  stripeAccount        StripeAccount?
+
+  @@index([role])
+  @@index([createdAt])
+}
+
+model Profile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  displayName     String
+  displayNameJa   String?
+  bio             String?
+  bioJa           String?
+  locale          String?  @db.VarChar(10)
+  timezone        String?  @db.VarChar(64)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([displayName])
+}
+
+model TrainerProfile {
+  id              String            @id @default(cuid())
+  userId          String            @unique
+  headline        String?
+  headlineJa      String?
+  experienceYears Int?
+  hourlyRate      Decimal?          @db.Decimal(10, 2)
+  currency        String            @default("JPY") @db.VarChar(3)
+  isPublished     Boolean           @default(false)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categories      TrainerCategory[]
+  plans           SubscriptionPlan[]
+  offerings       SessionOffering[]
+  reviews         Review[]
+
+  @@index([isPublished])
+}
+
+model TrainerCategory {
+  id               String           @id @default(cuid())
+  trainerProfileId String
+  key              String           @db.VarChar(64)
+  labelEn          String
+  labelJa          String?
+  createdAt        DateTime         @default(now())
+  trainerProfile   TrainerProfile   @relation(fields: [trainerProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([trainerProfileId, key])
+  @@index([key])
+}
+
+model SubscriptionPlan {
+  id               String           @id @default(cuid())
+  trainerProfileId String
+  nameEn           String
+  nameJa           String?
+  descriptionEn    String?
+  descriptionJa    String?
+  priceMonthly     Decimal          @db.Decimal(10, 2)
+  currency         String           @default("JPY") @db.VarChar(3)
+  isActive         Boolean          @default(true)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  trainerProfile   TrainerProfile   @relation(fields: [trainerProfileId], references: [id], onDelete: Cascade)
+  purchases        SubscriptionPurchase[]
+
+  @@index([trainerProfileId, isActive])
+}
+
+model ContentPost {
+  id               String        @id @default(cuid())
+  authorId         String
+  titleEn          String
+  titleJa          String?
+  bodyEn           String
+  bodyJa           String?
+  status           ContentStatus @default(DRAFT)
+  publishedAt      DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  author           User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([authorId, status])
+  @@index([publishedAt])
+}
+
+model SessionOffering {
+  id               String         @id @default(cuid())
+  trainerProfileId String
+  trainerUserId    String
+  titleEn          String
+  titleJa          String?
+  descriptionEn    String?
+  descriptionJa    String?
+  durationMinutes  Int
+  price            Decimal        @db.Decimal(10, 2)
+  currency         String         @default("JPY") @db.VarChar(3)
+  isActive         Boolean        @default(true)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  trainerProfile   TrainerProfile @relation(fields: [trainerProfileId], references: [id], onDelete: Cascade)
+  trainer          User           @relation(fields: [trainerUserId], references: [id], onDelete: Cascade)
+  bookings         Booking[]
+
+  @@index([trainerUserId, isActive])
+  @@index([trainerProfileId])
+}
+
+model Booking {
+  id                String          @id @default(cuid())
+  sessionOfferingId String
+  clientId          String
+  trainerId         String
+  status            BookingStatus   @default(PENDING)
+  startsAt          DateTime
+  endsAt            DateTime
+  notes             String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  sessionOffering   SessionOffering @relation(fields: [sessionOfferingId], references: [id], onDelete: Restrict)
+  client            User            @relation("ClientBookings", fields: [clientId], references: [id], onDelete: Cascade)
+  trainer           User            @relation("TrainerBookings", fields: [trainerId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, startsAt])
+  @@index([trainerId, startsAt])
+  @@index([status])
+}
+
+model SubscriptionPurchase {
+  id                 String         @id @default(cuid())
+  userId             String
+  subscriptionPlanId String
+  status             PurchaseStatus @default(ACTIVE)
+  startedAt          DateTime       @default(now())
+  expiresAt          DateTime?
+  canceledAt         DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscriptionPlan   SubscriptionPlan @relation(fields: [subscriptionPlanId], references: [id], onDelete: Restrict)
+
+  @@index([userId, status])
+  @@index([subscriptionPlanId])
+}
+
+model Review {
+  id               String         @id @default(cuid())
+  trainerProfileId String
+  reviewerId       String
+  targetUserId     String
+  rating           Int
+  titleEn          String?
+  titleJa          String?
+  commentEn        String?
+  commentJa        String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  trainerProfile   TrainerProfile @relation(fields: [trainerProfileId], references: [id], onDelete: Cascade)
+  reviewer         User           @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+  targetUser       User           @relation("ReviewTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+
+  @@index([trainerProfileId, createdAt])
+  @@index([targetUserId])
+}
+
+model StripeAccount {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  stripeAccountId       String   @unique
+  chargesEnabled        Boolean  @default(false)
+  payoutsEnabled        Boolean  @default(false)
+  detailsSubmitted      Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([stripeAccountId])
+}
