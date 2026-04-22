@@ -75,8 +75,18 @@ model Profile {
 model TrainerProfile {
   id              String            @id @default(cuid())
   userId          String            @unique
+  profileImageUrl String?           @db.VarChar(2048)
   headline        String?
   headlineJa      String?
+  shortBio        String?
+  shortBioJa      String?
+  longBio         String?
+  longBioJa       String?
+  languages       Json?
+  achievements    Json?
+  certifications  Json?
+  coachingFormats Json?
+  socialLinks     Json?
   experienceYears Int?
   hourlyRate      Decimal?          @db.Decimal(10, 2)
   currency        String            @default("JPY") @db.VarChar(3)
