@@ -54,6 +54,8 @@ type DetailTrainerRecord = {
       publishedAt: Date | null;
       createdAt: Date;
     }>;
+    profile: { displayName: string | null; displayNameJa: string | null; bio: string | null; bioJa: string | null; locale: string | null } | null;
+    stripeAccount: { detailsSubmitted: boolean; chargesEnabled: boolean; payoutsEnabled: boolean } | null;
   };
   categories: Array<{ key: string; labelEn: string; labelJa: string | null }>;
   offerings: Array<{
@@ -209,6 +211,11 @@ export async function getTrainerDetail(locale: Locale, trainerId: string): Promi
                 bodyJa: true,
                 publishedAt: true,
                 createdAt: true,
+            stripeAccount: {
+              select: {
+                detailsSubmitted: true,
+                chargesEnabled: true,
+                payoutsEnabled: true,
               },
             },
           },
@@ -246,6 +253,13 @@ export async function getTrainerDetail(locale: Locale, trainerId: string): Promi
       "Trainer";
 
     const ratings = trainer.reviews.map((review) => review.rating);
+    const onboardingComplete = Boolean(
+      trainer.user.stripeAccount?.detailsSubmitted &&
+        trainer.user.stripeAccount?.chargesEnabled &&
+        trainer.user.stripeAccount?.payoutsEnabled,
+    );
+    const offerings = onboardingComplete ? trainer.offerings : [];
+    const plans = onboardingComplete ? trainer.plans : [];
 
     return {
       id: trainer.id,
@@ -258,18 +272,18 @@ export async function getTrainerDetail(locale: Locale, trainerId: string): Promi
       languages: buildLanguages(trainer.user.profile?.locale),
       achievements: [
         trainer.experienceYears ? `${trainer.experienceYears}+ years coaching` : "Growing coaching portfolio",
-        trainer.offerings.length ? `${trainer.offerings.length} active session offerings` : "No active sessions yet",
+        offerings.length ? `${offerings.length} active session offerings` : "No active sessions yet",
       ],
       rating: ratings.length ? ratings.reduce((sum, value) => sum + value, 0) / ratings.length : null,
       reviewCount: ratings.length,
-      sessionOfferings: trainer.offerings.map((offering) => ({
+      sessionOfferings: offerings.map((offering) => ({
         id: offering.id,
         title: localized(offering.titleEn, offering.titleJa, locale),
         description: localized(offering.descriptionEn, offering.descriptionJa, locale),
         durationMinutes: offering.durationMinutes,
         price: toPrice(offering.price.toString(), offering.currency),
       })),
-      subscriptionPlans: trainer.plans.map((plan) => ({
+      subscriptionPlans: plans.map((plan) => ({
         id: plan.id,
         name: localized(plan.nameEn, plan.nameJa, locale),
         description: localized(plan.descriptionEn, plan.descriptionJa, locale),
