@@ -1,7 +1,24 @@
-import { clerkMiddleware } from "@clerk/nextjs/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 import { defaultLocale, locales } from "@/lib/constants/locales";
+
+const isProtectedRoute = createRouteMatcher([
+  "/:locale/dashboard(.*)",
+  "/:locale/onboarding(.*)",
+]);
+
+const isAuthRoute = createRouteMatcher([
+  "/:locale/sign-in(.*)",
+  "/:locale/sign-up(.*)",
+]);
+
+function getLocaleFromPath(pathname: string) {
+  const [, candidate] = pathname.split("/");
+  return locales.includes(candidate as (typeof locales)[number])
+    ? (candidate as (typeof locales)[number])
+    : null;
+}
 
 export default clerkMiddleware(async (auth, req) => {
   const { pathname } = req.nextUrl;
@@ -22,11 +39,24 @@ export default clerkMiddleware(async (auth, req) => {
     return NextResponse.redirect(url);
   }
 
-  await auth();
+  if (isProtectedRoute(req)) {
+    await auth.protect();
+  }
+
+  if (isAuthRoute(req)) {
+    const { userId } = await auth();
+
+    if (userId) {
+      const locale = getLocaleFromPath(pathname) ?? defaultLocale;
+      const url = req.nextUrl.clone();
+      url.pathname = `/${locale}/dashboard`;
+      return NextResponse.redirect(url);
+    }
+  }
 
   return NextResponse.next();
 });
 
 export const config = {
-  matcher: ["/(.*)"],
+  matcher: ["/((?!_next|.*\\..*).*)", "/"],
 };
