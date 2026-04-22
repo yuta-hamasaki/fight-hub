@@ -2,6 +2,11 @@ type PrismaClientType = {
   user: {
     upsert: (...args: unknown[]) => Promise<unknown>;
     update: (...args: unknown[]) => Promise<unknown>;
+    findUnique: (...args: unknown[]) => Promise<unknown>;
+  };
+  trainerProfile: {
+    findMany: (...args: unknown[]) => Promise<unknown>;
+    findFirst: (...args: unknown[]) => Promise<unknown>;
   };
 };
 
