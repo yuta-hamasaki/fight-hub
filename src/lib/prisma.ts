@@ -1,5 +1,8 @@
 type PrismaClientType = {
-  [key: string]: unknown;
+  user: {
+    upsert: (...args: unknown[]) => Promise<unknown>;
+    update: (...args: unknown[]) => Promise<unknown>;
+  };
 };
 
 const globalForPrisma = globalThis as { prisma?: PrismaClientType };
