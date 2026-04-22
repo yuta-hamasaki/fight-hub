@@ -24,6 +24,9 @@ export async function AppShell({ children, locale }: { children: ReactNode; loca
             <LanguageSwitcher />
             {userId ? (
               <>
+                <Link href={`/${locale}/trainers`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                  {copy.trainers}
+                </Link>
                 <Link
                   href={`/${locale}/dashboard`}
                   className={buttonVariants({ variant: "outline", size: "sm" })}
@@ -34,6 +37,9 @@ export async function AppShell({ children, locale }: { children: ReactNode; loca
               </>
             ) : (
               <>
+                <Link href={`/${locale}/trainers`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                  {copy.trainers}
+                </Link>
                 <SignInButton mode="modal" forceRedirectUrl={`/${locale}/dashboard`}>
                   <Button variant="outline" size="sm">
                     {copy.signIn}
