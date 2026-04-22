@@ -4,7 +4,6 @@ export type PrismaClientType = any;
 const globalForPrisma = globalThis as { prisma?: PrismaClientType };
 
 function createPrismaClient(): PrismaClientType {
-function createPrismaClient() {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { PrismaClient } = require("@prisma/client");
 
@@ -13,11 +12,7 @@ function createPrismaClient() {
   });
 }
 
-type PrismaClientType = ReturnType<typeof createPrismaClient>;
-
-const globalForPrisma = globalThis as { prisma?: PrismaClientType };
-
-export function getPrismaClient() {
+export function getPrismaClient(): PrismaClientType {
   if (!globalForPrisma.prisma) {
     globalForPrisma.prisma = createPrismaClient();
   }

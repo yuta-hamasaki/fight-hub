@@ -1,26 +1,18 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { TrainerProfileForm } from "@/components/forms/trainer-profile/trainer-profile-form";
 import { SubscriptionPlanManager } from "@/components/forms/subscription-plan/subscription-plan-manager";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireDbUser } from "@/lib/auth/session";
 import type { Locale } from "@/lib/constants/locales";
 import { dictionary } from "@/lib/i18n/dictionary";
-import { PLATFORM_FEE_BPS } from "@/lib/billing/fees";
-import { getTrainerStripeOnboardingStatus } from "@/lib/stripe/connect";
-
-import { refreshTrainerStripeStatus, startTrainerStripeOnboarding } from "./actions";
-import { TrainerProfileForm } from "@/components/forms/trainer-profile/trainer-profile-form";
-import type { TrainerProfileFormValues } from "@/components/forms/trainer-profile/types";
-import { Card, CardContent } from "@/components/ui/card";
-import { requireDbUser } from "@/lib/auth/session";
-import type { Locale } from "@/lib/constants/locales";
-import { dictionary } from "@/lib/i18n/dictionary";
 import { getPrismaClient } from "@/lib/prisma";
 
 import { saveTrainerProfile } from "./actions";
-import { saveSubscriptionPlan, setPlanPublishStatus } from "./subscription-actions";
 import { INITIAL_SUBSCRIPTION_PLAN_STATE } from "./subscription-plan-types";
+import { saveSubscriptionPlan, setPlanPublishStatus } from "./subscription-actions";
 
 function toStringArray(value: unknown) {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
@@ -35,11 +27,7 @@ function toSocialValue(value: unknown, key: string) {
   return typeof record[key] === "string" ? record[key] : "";
 }
 
-export default async function TrainerDashboardPage({
-  params,
-}: {
-  params: Promise<{ locale: Locale }>;
-}) {
+export default async function TrainerDashboardPage({ params }: { params: Promise<{ locale: Locale }> }) {
   const { locale } = await params;
   const copy = dictionary[locale];
   const user = await requireDbUser(locale);
@@ -62,28 +50,26 @@ export default async function TrainerDashboardPage({
     }),
   ]);
 
-  const initialValues: TrainerProfileFormValues = {
-    displayName: profile?.displayName ?? "",
-    displayNameJa: profile?.displayNameJa ?? "",
-    profileImageUrl: trainerProfile?.profileImageUrl ?? "",
-    shortBio: trainerProfile?.shortBio ?? profile?.bio ?? "",
-    shortBioJa: trainerProfile?.shortBioJa ?? profile?.bioJa ?? "",
-    longBio: trainerProfile?.longBio ?? "",
-    longBioJa: trainerProfile?.longBioJa ?? "",
-    categories: categories.map((category: { labelEn: string }) => category.labelEn),
-    languages: toStringArray(trainerProfile?.languages),
-    achievements: toStringArray(trainerProfile?.achievements),
-    certifications: toStringArray(trainerProfile?.certifications),
-    coachingFormats: toStringArray(trainerProfile?.coachingFormats),
-    socialWebsite: toSocialValue(trainerProfile?.socialLinks, "website"),
-    socialInstagram: toSocialValue(trainerProfile?.socialLinks, "instagram"),
-    socialX: toSocialValue(trainerProfile?.socialLinks, "x"),
-    socialYoutube: toSocialValue(trainerProfile?.socialLinks, "youtube"),
-  };
-
   return (
-    <Card>
-      <CardContent className="pt-6">
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>{copy.trainerDashboardTitle}</CardTitle>
+          <CardDescription>{copy.trainerDashboardDescription}</CardDescription>
+        </CardHeader>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{copy.premiumContentManageTitle}</CardTitle>
+          <CardDescription>{copy.premiumContentManageDescription}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild>
+            <Link href={`/${locale}/dashboard/trainer/content`}>{copy.premiumContentOpenManager}</Link>
+          </Button>
+        </CardContent>
+      </Card>
 
       <SubscriptionPlanManager
         locale={locale}
@@ -108,26 +94,42 @@ export default async function TrainerDashboardPage({
         onToggle={setPlanPublishStatus.bind(null, locale)}
       />
 
-        <TrainerProfileForm
-          locale={locale}
-          copy={{
-            title: copy.trainerProfileTitle,
-            description: copy.trainerProfileDescription,
-            save: copy.saveTrainerProfile,
-            saved: copy.trainerProfileSaved,
-            formTip: copy.trainerProfileFormTip,
-            basicInfo: copy.trainerProfileSectionBasic,
-            bios: copy.trainerProfileSectionBio,
-            categoriesAndLanguages: copy.trainerProfileSectionCategory,
-            credibility: copy.trainerProfileSectionCredibility,
-            coaching: copy.trainerProfileSectionCoaching,
-            socialLinks: copy.trainerProfileSectionSocial,
-          }}
-          initialValues={initialValues}
-          initialState={{ status: "idle", message: "", fieldErrors: {} }}
-          action={saveTrainerProfile.bind(null, locale)}
-        />
-      </CardContent>
-    </Card>
+      <TrainerProfileForm
+        locale={locale}
+        copy={{
+          title: copy.trainerProfileTitle,
+          description: copy.trainerProfileDescription,
+          save: copy.saveTrainerProfile,
+          saved: copy.trainerProfileSaved,
+          formTip: copy.trainerProfileFormTip,
+          basicInfo: copy.trainerProfileSectionBasic,
+          bios: copy.trainerProfileSectionBio,
+          categoriesAndLanguages: copy.trainerProfileSectionCategory,
+          credibility: copy.trainerProfileSectionCredibility,
+          coaching: copy.trainerProfileSectionCoaching,
+          socialLinks: copy.trainerProfileSectionSocial,
+        }}
+        initialValues={{
+          displayName: profile?.displayName ?? "",
+          displayNameJa: profile?.displayNameJa ?? "",
+          profileImageUrl: trainerProfile?.profileImageUrl ?? "",
+          shortBio: trainerProfile?.shortBio ?? profile?.bio ?? "",
+          shortBioJa: trainerProfile?.shortBioJa ?? profile?.bioJa ?? "",
+          longBio: trainerProfile?.longBio ?? "",
+          longBioJa: trainerProfile?.longBioJa ?? "",
+          categories: categories.map((category: { labelEn: string }) => category.labelEn),
+          languages: toStringArray(trainerProfile?.languages),
+          achievements: toStringArray(trainerProfile?.achievements),
+          certifications: toStringArray(trainerProfile?.certifications),
+          coachingFormats: toStringArray(trainerProfile?.coachingFormats),
+          socialWebsite: toSocialValue(trainerProfile?.socialLinks, "website"),
+          socialInstagram: toSocialValue(trainerProfile?.socialLinks, "instagram"),
+          socialX: toSocialValue(trainerProfile?.socialLinks, "x"),
+          socialYoutube: toSocialValue(trainerProfile?.socialLinks, "youtube"),
+        }}
+        initialState={{ status: "idle", message: "", fieldErrors: {} }}
+        action={saveTrainerProfile.bind(null, locale)}
+      />
+    </div>
   );
 }

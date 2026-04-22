@@ -33,6 +33,11 @@ enum ContentStatus {
   ARCHIVED
 }
 
+enum PremiumContentType {
+  TEXT
+  YOUTUBE
+}
+
 model User {
   id                   String                 @id @default(cuid())
   clerkUserId          String                 @unique
@@ -129,6 +134,7 @@ model SubscriptionPlan {
   updatedAt        DateTime         @updatedAt
   trainerProfile   TrainerProfile   @relation(fields: [trainerProfileId], references: [id], onDelete: Cascade)
   purchases        SubscriptionPurchase[]
+  contentAccesses  ContentAccess[]
 
   @@index([trainerProfileId, isActive])
 }
@@ -136,19 +142,38 @@ model SubscriptionPlan {
 model ContentPost {
   id               String        @id @default(cuid())
   authorId         String
+  contentType      PremiumContentType @default(TEXT)
   titleEn          String
   titleJa          String?
+  summaryEn        String?
+  summaryJa        String?
   bodyEn           String
   bodyJa           String?
+  thumbnailUrl     String?       @db.VarChar(2048)
+  youtubeUrl       String?       @db.VarChar(2048)
+  templateKey      String?       @db.VarChar(64)
   isPremium        Boolean       @default(false)
   status           ContentStatus @default(DRAFT)
   publishedAt      DateTime?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
   author           User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  accesses         ContentAccess[]
 
   @@index([authorId, status])
   @@index([publishedAt])
+}
+
+model ContentAccess {
+  id                 String           @id @default(cuid())
+  contentPostId      String
+  subscriptionPlanId String
+  createdAt          DateTime         @default(now())
+  contentPost        ContentPost      @relation(fields: [contentPostId], references: [id], onDelete: Cascade)
+  subscriptionPlan   SubscriptionPlan @relation(fields: [subscriptionPlanId], references: [id], onDelete: Cascade)
+
+  @@unique([contentPostId, subscriptionPlanId])
+  @@index([subscriptionPlanId])
 }
 
 model SessionOffering {
