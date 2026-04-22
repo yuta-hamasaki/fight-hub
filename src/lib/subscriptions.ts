@@ -34,20 +34,16 @@ type SubscriptionQueryRecord = {
   };
 };
 
-type ActivePlanTrainerRecord = {
-  subscriptionPlan: {
-    trainerProfile: {
-      userId: string;
-    };
-  };
-};
-
 type PremiumPostRecord = {
   id: string;
+  contentType: "TEXT" | "YOUTUBE";
   titleEn: string;
   titleJa: string | null;
+  summaryEn: string | null;
+  summaryJa: string | null;
   bodyEn: string;
   bodyJa: string | null;
+  youtubeUrl: string | null;
   publishedAt: Date | null;
   createdAt: Date;
   author: {
@@ -134,37 +130,33 @@ export async function getActiveSubscriptions(userId: string, locale: Locale): Pr
 export async function getAccessiblePremiumPosts(userId: string, locale: Locale): Promise<PremiumPostItem[]> {
   const prisma = getPrismaClient();
 
-  const activePlanTrainerIds = (await prisma.subscriptionPurchase.findMany({
+  const activePlanIds = (await prisma.subscriptionPurchase.findMany({
     where: {
       userId,
       status: "ACTIVE",
     },
     select: {
-      subscriptionPlan: {
-        select: {
-          trainerProfile: {
-            select: {
-              userId: true,
-            },
-          },
-        },
-      },
+      subscriptionPlanId: true,
     },
-  })) as ActivePlanTrainerRecord[];
+  })) as Array<{ subscriptionPlanId: string }>;
 
-  const trainerUserIds = [...new Set(activePlanTrainerIds.map((item) => item.subscriptionPlan.trainerProfile.userId))];
+  const planIds = [...new Set(activePlanIds.map((item) => item.subscriptionPlanId))];
 
-  if (trainerUserIds.length === 0) {
+  if (planIds.length === 0) {
     return [];
   }
 
   const posts = (await prisma.contentPost.findMany({
     where: {
-      authorId: {
-        in: trainerUserIds,
-      },
       status: "PUBLISHED",
       isPremium: true,
+      accesses: {
+        some: {
+          subscriptionPlanId: {
+            in: planIds,
+          },
+        },
+      },
     },
     include: {
       author: {
@@ -188,7 +180,7 @@ export async function getAccessiblePremiumPosts(userId: string, locale: Locale):
     id: post.id,
     trainerProfileId: post.author.trainerProfile?.id ?? "",
     title: localized(post.titleEn, post.titleJa, locale),
-    body: localized(post.bodyEn, post.bodyJa, locale),
+    body: localized(post.summaryEn, post.summaryJa, locale) || localized(post.bodyEn, post.bodyJa, locale),
     trainerName:
       localized(post.author.profile?.displayName, post.author.profile?.displayNameJa, locale) ||
       post.author.email ||

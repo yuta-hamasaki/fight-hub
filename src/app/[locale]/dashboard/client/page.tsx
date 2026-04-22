@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
 import type { Locale } from "@/lib/constants/locales";
 import { dictionary } from "@/lib/i18n/dictionary";
 import { requireDbUser } from "@/lib/auth/session";
@@ -56,6 +57,11 @@ export default async function ClientDashboardPage({
       <Card>
         <CardHeader>
           <CardTitle>{copy.subscriptionPremiumContent}</CardTitle>
+          <CardDescription>
+            <Link href={`/${locale}/dashboard/client/content`} className="underline">
+              {copy.clientPremiumOpenList}
+            </Link>
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
           {premiumPosts.length ? (
