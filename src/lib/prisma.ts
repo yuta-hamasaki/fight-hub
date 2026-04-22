@@ -1,14 +1,5 @@
-type PrismaClientType = {
-  user: {
-    upsert: (...args: unknown[]) => Promise<unknown>;
-    update: (...args: unknown[]) => Promise<unknown>;
-    findUnique: (...args: unknown[]) => Promise<unknown>;
-  };
-  trainerProfile: {
-    findMany: (...args: unknown[]) => Promise<unknown>;
-    findFirst: (...args: unknown[]) => Promise<unknown>;
-  };
-};
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type PrismaClientType = any;
 
 const globalForPrisma = globalThis as { prisma?: PrismaClientType };
 

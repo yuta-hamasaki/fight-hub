@@ -115,12 +115,6 @@ function validate(values: TrainerProfileFormValues): TrainerProfileFormState {
   };
 }
 
-export const INITIAL_TRAINER_PROFILE_STATE: TrainerProfileFormState = {
-  status: "idle",
-  message: "",
-  fieldErrors: {},
-};
-
 export async function saveTrainerProfile(
   locale: Locale,
   _prevState: TrainerProfileFormState,
@@ -161,7 +155,7 @@ export async function saveTrainerProfile(
     return validation;
   }
 
-  await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx: { [key: string]: { [key: string]: (...args: unknown[]) => Promise<unknown> } }) => {
     await tx.profile.upsert({
       where: { userId: user.id },
       create: {
@@ -179,7 +173,7 @@ export async function saveTrainerProfile(
       },
     });
 
-    const trainerProfile = await tx.trainerProfile.upsert({
+    const trainerProfile = (await tx.trainerProfile.upsert({
       where: { userId: user.id },
       create: {
         userId: user.id,
@@ -217,7 +211,7 @@ export async function saveTrainerProfile(
         },
       },
       select: { id: true },
-    });
+    })) as { id: string };
 
     await tx.trainerCategory.deleteMany({ where: { trainerProfileId: trainerProfile.id } });
     if (values.categories.length > 0) {
