@@ -1,11 +1,15 @@
+import { auth } from "@clerk/nextjs/server";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { PurchaseSubscriptionButton } from "@/components/subscriptions/purchase-subscription-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Locale } from "@/lib/constants/locales";
 import { dictionary } from "@/lib/i18n/dictionary";
+import { getPrismaClient } from "@/lib/prisma";
+import { hasActiveSubscriptionForTrainer } from "@/lib/subscriptions";
 import { getTrainerDetail } from "@/lib/trainers";
 
 export async function generateMetadata({
@@ -41,6 +45,20 @@ export default async function TrainerDetailPage({
   if (!trainer) {
     notFound();
   }
+
+  const { userId } = await auth();
+  const prisma = getPrismaClient();
+
+  const dbUser = userId
+    ? ((await prisma.user.findUnique({
+        where: { clerkUserId: userId },
+        select: { id: true, role: true },
+      })) as { id: string; role: string } | null)
+    : null;
+  const canPurchase = dbUser?.role === "CLIENT";
+  const hasAccess = dbUser
+    ? await hasActiveSubscriptionForTrainer(dbUser.id, trainerId)
+    : false;
 
   return (
     <div className="space-y-6">
@@ -135,7 +153,10 @@ export default async function TrainerDetailPage({
                 <div key={plan.id} className="rounded-lg border border-border p-3">
                   <p className="font-semibold">{plan.name}</p>
                   <p className="text-sm text-muted-foreground">{plan.description || copy.trainerNoDescription}</p>
-                  <p className="mt-2 text-xs text-muted-foreground">{plan.priceMonthly} / month</p>
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <p className="text-xs text-muted-foreground">{plan.priceMonthly} / month</p>
+                    {canPurchase ? <PurchaseSubscriptionButton locale={locale} planId={plan.id} label={copy.subscriptionBuyNow} /> : null}
+                  </div>
                 </div>
               ))
             ) : (
@@ -144,6 +165,30 @@ export default async function TrainerDetailPage({
           </CardContent>
         </Card>
       </section>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{copy.subscriptionPremiumContent}</CardTitle>
+          <CardDescription>{hasAccess ? copy.subscriptionPremiumGranted : copy.subscriptionPremiumLocked}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {hasAccess ? (
+            trainer.premiumPosts.length ? (
+              trainer.premiumPosts.map((post) => (
+                <article key={post.id} className="rounded-lg border border-border p-3">
+                  <p className="font-semibold">{post.title}</p>
+                  <p className="text-sm text-muted-foreground">{post.body}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">{post.publishedAt}</p>
+                </article>
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground">{copy.subscriptionNoPremiumPosts}</p>
+            )
+          ) : (
+            <p className="text-sm text-muted-foreground">{copy.subscriptionPremiumLockedBody}</p>
+          )}
+        </CardContent>
+      </Card>
 
       <section className="grid gap-4 md:grid-cols-2">
         <Card>

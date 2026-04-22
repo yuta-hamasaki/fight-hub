@@ -1,3 +1,9 @@
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type PrismaClientType = any;
+
+const globalForPrisma = globalThis as { prisma?: PrismaClientType };
+
+function createPrismaClient(): PrismaClientType {
 function createPrismaClient() {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { PrismaClient } = require("@prisma/client");

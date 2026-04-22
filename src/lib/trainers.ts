@@ -13,36 +13,89 @@ type TrainerDirectoryItem = {
   reviewCount: number;
 };
 
-
 type DirectoryTrainerRecord = {
   id: string;
   experienceYears: number | null;
-  user: { email: string | null; profile: { displayName: string | null; displayNameJa: string | null; bio: string | null; bioJa: string | null; locale: string | null } | null };
+  user: {
+    email: string | null;
+    profile: {
+      displayName: string | null;
+      displayNameJa: string | null;
+      bio: string | null;
+      bioJa: string | null;
+      locale: string | null;
+    } | null;
+  };
   categories: Array<{ key: string; labelEn: string; labelJa: string | null }>;
   reviews: Array<{ rating: number }>;
 };
 
 type DetailTrainerRecord = {
   id: string;
+  userId: string;
   headline: string | null;
   headlineJa: string | null;
   experienceYears: number | null;
   user: {
     email: string | null;
+    profile: {
+      displayName: string | null;
+      displayNameJa: string | null;
+      bio: string | null;
+      bioJa: string | null;
+      locale: string | null;
+    } | null;
+    contentPosts: Array<{
+      id: string;
+      titleEn: string;
+      titleJa: string | null;
+      bodyEn: string;
+      bodyJa: string | null;
+      publishedAt: Date | null;
+      createdAt: Date;
+    }>;
     profile: { displayName: string | null; displayNameJa: string | null; bio: string | null; bioJa: string | null; locale: string | null } | null;
     stripeAccount: { detailsSubmitted: boolean; chargesEnabled: boolean; payoutsEnabled: boolean } | null;
   };
   categories: Array<{ key: string; labelEn: string; labelJa: string | null }>;
-  offerings: Array<{ id: string; titleEn: string; titleJa: string | null; descriptionEn: string | null; descriptionJa: string | null; durationMinutes: number; price: { toString(): string }; currency: string }>;
-  plans: Array<{ id: string; nameEn: string; nameJa: string | null; descriptionEn: string | null; descriptionJa: string | null; priceMonthly: { toString(): string }; currency: string }>;
-  reviews: Array<{ id: string; rating: number; titleEn: string | null; titleJa: string | null; commentEn: string | null; commentJa: string | null; createdAt: Date; reviewer: { email: string | null; profile: { displayName: string | null; displayNameJa: string | null } | null } }>;
+  offerings: Array<{
+    id: string;
+    titleEn: string;
+    titleJa: string | null;
+    descriptionEn: string | null;
+    descriptionJa: string | null;
+    durationMinutes: number;
+    price: { toString(): string };
+    currency: string;
+  }>;
+  plans: Array<{
+    id: string;
+    nameEn: string;
+    nameJa: string | null;
+    descriptionEn: string | null;
+    descriptionJa: string | null;
+    priceMonthly: { toString(): string };
+    currency: string;
+  }>;
+  reviews: Array<{
+    id: string;
+    rating: number;
+    titleEn: string | null;
+    titleJa: string | null;
+    commentEn: string | null;
+    commentJa: string | null;
+    createdAt: Date;
+    reviewer: { email: string | null; profile: { displayName: string | null; displayNameJa: string | null } | null };
+  }>;
 };
 
 export type TrainerDetail = TrainerDirectoryItem & {
+  trainerUserId: string;
   headline: string;
   sessionOfferings: Array<{ id: string; title: string; description: string; durationMinutes: number; price: string }>;
   subscriptionPlans: Array<{ id: string; name: string; description: string; priceMonthly: string }>;
   reviews: Array<{ id: string; rating: number; title: string; comment: string; reviewerName: string; createdAt: string }>;
+  premiumPosts: Array<{ id: string; title: string; body: string; publishedAt: string }>;
   externalLinks: Array<{ label: string; href: string }>;
 };
 
@@ -61,12 +114,13 @@ function toPrice(amount: number | string, currency: string) {
 }
 
 function avatarDataUri(name: string) {
-  const initials = name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((segment) => segment[0]?.toUpperCase() ?? "")
-    .join("") || "TR";
+  const initials =
+    name
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((segment) => segment[0]?.toUpperCase() ?? "")
+      .join("") || "TR";
 
   const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><rect width='100%' height='100%' fill='#f4f4f5'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='84' fill='#27272a' font-family='Inter, Arial, sans-serif'>${initials}</text></svg>`;
 
@@ -145,6 +199,18 @@ export async function getTrainerDetail(locale: Locale, trainerId: string): Promi
         user: {
           include: {
             profile: true,
+            contentPosts: {
+              where: { status: "PUBLISHED", isPremium: true },
+              orderBy: { publishedAt: "desc" },
+              take: 5,
+              select: {
+                id: true,
+                titleEn: true,
+                titleJa: true,
+                bodyEn: true,
+                bodyJa: true,
+                publishedAt: true,
+                createdAt: true,
             stripeAccount: {
               select: {
                 detailsSubmitted: true,
@@ -197,6 +263,7 @@ export async function getTrainerDetail(locale: Locale, trainerId: string): Promi
 
     return {
       id: trainer.id,
+      trainerUserId: trainer.userId,
       name,
       headline: localized(trainer.headline, trainer.headlineJa, locale),
       bio: localized(trainer.user.profile?.bio ?? "", trainer.user.profile?.bioJa ?? "", locale),
@@ -221,6 +288,12 @@ export async function getTrainerDetail(locale: Locale, trainerId: string): Promi
         name: localized(plan.nameEn, plan.nameJa, locale),
         description: localized(plan.descriptionEn, plan.descriptionJa, locale),
         priceMonthly: toPrice(plan.priceMonthly.toString(), plan.currency),
+      })),
+      premiumPosts: trainer.user.contentPosts.map((post) => ({
+        id: post.id,
+        title: localized(post.titleEn, post.titleJa, locale),
+        body: localized(post.bodyEn, post.bodyJa, locale),
+        publishedAt: (post.publishedAt ?? post.createdAt).toISOString().slice(0, 10),
       })),
       reviews: trainer.reviews.map((review) => ({
         id: review.id,

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { SubscriptionPlanManager } from "@/components/forms/subscription-plan/subscription-plan-manager";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireDbUser } from "@/lib/auth/session";
@@ -17,7 +18,9 @@ import type { Locale } from "@/lib/constants/locales";
 import { dictionary } from "@/lib/i18n/dictionary";
 import { getPrismaClient } from "@/lib/prisma";
 
-import { INITIAL_TRAINER_PROFILE_STATE, saveTrainerProfile } from "./actions";
+import { saveTrainerProfile } from "./actions";
+import { saveSubscriptionPlan, setPlanPublishStatus } from "./subscription-actions";
+import { INITIAL_SUBSCRIPTION_PLAN_STATE } from "./subscription-plan-types";
 
 function toStringArray(value: unknown) {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
@@ -46,12 +49,16 @@ export default async function TrainerDashboardPage({
     redirect(`/${locale}/dashboard`);
   }
 
-  const [profile, trainerProfile, categories] = await Promise.all([
+  const [profile, trainerProfile, categories, plans] = await Promise.all([
     prisma.profile.findUnique({ where: { userId: user.id } }),
     prisma.trainerProfile.findUnique({ where: { userId: user.id } }),
     prisma.trainerCategory.findMany({
       where: { trainerProfile: { userId: user.id } },
       orderBy: { createdAt: "asc" },
+    }),
+    prisma.subscriptionPlan.findMany({
+      where: { trainerProfile: { userId: user.id } },
+      orderBy: { updatedAt: "desc" },
     }),
   ]);
 
@@ -63,7 +70,7 @@ export default async function TrainerDashboardPage({
     shortBioJa: trainerProfile?.shortBioJa ?? profile?.bioJa ?? "",
     longBio: trainerProfile?.longBio ?? "",
     longBioJa: trainerProfile?.longBioJa ?? "",
-    categories: categories.map((category) => category.labelEn),
+    categories: categories.map((category: { labelEn: string }) => category.labelEn),
     languages: toStringArray(trainerProfile?.languages),
     achievements: toStringArray(trainerProfile?.achievements),
     certifications: toStringArray(trainerProfile?.certifications),
@@ -77,6 +84,30 @@ export default async function TrainerDashboardPage({
   return (
     <Card>
       <CardContent className="pt-6">
+
+      <SubscriptionPlanManager
+        locale={locale}
+        copy={{
+          title: copy.subscriptionManageTitle,
+          description: copy.subscriptionManageDescription,
+          save: copy.subscriptionSavePlan,
+          createNew: copy.subscriptionCreateNew,
+          active: copy.subscriptionStatusActive,
+          inactive: copy.subscriptionStatusInactive,
+          nameEn: copy.subscriptionNameEn,
+          nameJa: copy.subscriptionNameJa,
+          price: copy.subscriptionPriceMonthly,
+          descriptionEn: copy.subscriptionDescriptionEn,
+          descriptionJa: copy.subscriptionDescriptionJa,
+          publish: copy.subscriptionPublishLabel,
+          planList: copy.subscriptionCurrentPlans,
+        }}
+        plans={plans}
+        initialState={INITIAL_SUBSCRIPTION_PLAN_STATE}
+        action={saveSubscriptionPlan.bind(null, locale)}
+        onToggle={setPlanPublishStatus.bind(null, locale)}
+      />
+
         <TrainerProfileForm
           locale={locale}
           copy={{
@@ -93,7 +124,7 @@ export default async function TrainerDashboardPage({
             socialLinks: copy.trainerProfileSectionSocial,
           }}
           initialValues={initialValues}
-          initialState={INITIAL_TRAINER_PROFILE_STATE}
+          initialState={{ status: "idle", message: "", fieldErrors: {} }}
           action={saveTrainerProfile.bind(null, locale)}
         />
       </CardContent>
