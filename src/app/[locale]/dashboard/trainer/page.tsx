@@ -9,6 +9,28 @@ import { PLATFORM_FEE_BPS } from "@/lib/billing/fees";
 import { getTrainerStripeOnboardingStatus } from "@/lib/stripe/connect";
 
 import { refreshTrainerStripeStatus, startTrainerStripeOnboarding } from "./actions";
+import { TrainerProfileForm } from "@/components/forms/trainer-profile/trainer-profile-form";
+import type { TrainerProfileFormValues } from "@/components/forms/trainer-profile/types";
+import { Card, CardContent } from "@/components/ui/card";
+import { requireDbUser } from "@/lib/auth/session";
+import type { Locale } from "@/lib/constants/locales";
+import { dictionary } from "@/lib/i18n/dictionary";
+import { getPrismaClient } from "@/lib/prisma";
+
+import { INITIAL_TRAINER_PROFILE_STATE, saveTrainerProfile } from "./actions";
+
+function toStringArray(value: unknown) {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function toSocialValue(value: unknown, key: string) {
+  if (!value || typeof value !== "object") {
+    return "";
+  }
+
+  const record = value as Record<string, unknown>;
+  return typeof record[key] === "string" ? record[key] : "";
+}
 
 export default async function TrainerDashboardPage({
   params,
@@ -18,66 +40,63 @@ export default async function TrainerDashboardPage({
   const { locale } = await params;
   const copy = dictionary[locale];
   const user = await requireDbUser(locale);
+  const prisma = getPrismaClient();
 
   if (user.role !== "TRAINER") {
     redirect(`/${locale}/dashboard`);
   }
 
-  const stripeStatus = await getTrainerStripeOnboardingStatus(user.id);
+  const [profile, trainerProfile, categories] = await Promise.all([
+    prisma.profile.findUnique({ where: { userId: user.id } }),
+    prisma.trainerProfile.findUnique({ where: { userId: user.id } }),
+    prisma.trainerCategory.findMany({
+      where: { trainerProfile: { userId: user.id } },
+      orderBy: { createdAt: "asc" },
+    }),
+  ]);
 
-  const badgeTone = stripeStatus.onboardingComplete
-    ? "bg-emerald-100 text-emerald-800"
-    : "bg-amber-100 text-amber-800";
+  const initialValues: TrainerProfileFormValues = {
+    displayName: profile?.displayName ?? "",
+    displayNameJa: profile?.displayNameJa ?? "",
+    profileImageUrl: trainerProfile?.profileImageUrl ?? "",
+    shortBio: trainerProfile?.shortBio ?? profile?.bio ?? "",
+    shortBioJa: trainerProfile?.shortBioJa ?? profile?.bioJa ?? "",
+    longBio: trainerProfile?.longBio ?? "",
+    longBioJa: trainerProfile?.longBioJa ?? "",
+    categories: categories.map((category) => category.labelEn),
+    languages: toStringArray(trainerProfile?.languages),
+    achievements: toStringArray(trainerProfile?.achievements),
+    certifications: toStringArray(trainerProfile?.certifications),
+    coachingFormats: toStringArray(trainerProfile?.coachingFormats),
+    socialWebsite: toSocialValue(trainerProfile?.socialLinks, "website"),
+    socialInstagram: toSocialValue(trainerProfile?.socialLinks, "instagram"),
+    socialX: toSocialValue(trainerProfile?.socialLinks, "x"),
+    socialYoutube: toSocialValue(trainerProfile?.socialLinks, "youtube"),
+  };
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>{copy.trainerDashboardTitle}</CardTitle>
-          <CardDescription>{copy.trainerDashboardDescription}</CardDescription>
-        </CardHeader>
-        <CardContent>{copy.trainerDashboardBody}</CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{copy.trainerStripeConnectTitle}</CardTitle>
-          <CardDescription>{copy.trainerStripeConnectDescription}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <span className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${badgeTone}`}>
-            {stripeStatus.onboardingComplete ? copy.trainerStripeComplete : copy.trainerStripeIncomplete}
-          </span>
-
-          <ul className="space-y-1 text-sm text-muted-foreground">
-            <li>{copy.trainerStripeDetailSubmitted}: {stripeStatus.detailsSubmitted ? "Yes" : "No"}</li>
-            <li>{copy.trainerStripeChargesEnabled}: {stripeStatus.chargesEnabled ? "Yes" : "No"}</li>
-            <li>{copy.trainerStripePayoutsEnabled}: {stripeStatus.payoutsEnabled ? "Yes" : "No"}</li>
-            <li>{copy.trainerStripePlatformFee}: {(PLATFORM_FEE_BPS / 100).toFixed(0)}%</li>
-          </ul>
-
-          <div className="flex flex-wrap gap-2">
-            <form
-              action={startTrainerStripeOnboarding.bind(null, {
-                locale,
-                userId: user.id,
-                email: user.email,
-              })}
-            >
-              <Button type="submit">{copy.trainerStripeStartOnboarding}</Button>
-            </form>
-            <form action={refreshTrainerStripeStatus.bind(null, stripeStatus.stripeAccountId)}>
-              <Button type="submit" variant="outline">
-                {copy.trainerStripeRefreshStatus}
-              </Button>
-            </form>
-          </div>
-
-          {!stripeStatus.onboardingComplete ? (
-            <p className="text-sm text-muted-foreground">{copy.trainerStripeMonetizationBlocked}</p>
-          ) : null}
-        </CardContent>
-      </Card>
-    </div>
+    <Card>
+      <CardContent className="pt-6">
+        <TrainerProfileForm
+          locale={locale}
+          copy={{
+            title: copy.trainerProfileTitle,
+            description: copy.trainerProfileDescription,
+            save: copy.saveTrainerProfile,
+            saved: copy.trainerProfileSaved,
+            formTip: copy.trainerProfileFormTip,
+            basicInfo: copy.trainerProfileSectionBasic,
+            bios: copy.trainerProfileSectionBio,
+            categoriesAndLanguages: copy.trainerProfileSectionCategory,
+            credibility: copy.trainerProfileSectionCredibility,
+            coaching: copy.trainerProfileSectionCoaching,
+            socialLinks: copy.trainerProfileSectionSocial,
+          }}
+          initialValues={initialValues}
+          initialState={INITIAL_TRAINER_PROFILE_STATE}
+          action={saveTrainerProfile.bind(null, locale)}
+        />
+      </CardContent>
+    </Card>
   );
 }
