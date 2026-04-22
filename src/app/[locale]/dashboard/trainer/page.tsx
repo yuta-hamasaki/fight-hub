@@ -1,5 +1,14 @@
 import { redirect } from "next/navigation";
 
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { requireDbUser } from "@/lib/auth/session";
+import type { Locale } from "@/lib/constants/locales";
+import { dictionary } from "@/lib/i18n/dictionary";
+import { PLATFORM_FEE_BPS } from "@/lib/billing/fees";
+import { getTrainerStripeOnboardingStatus } from "@/lib/stripe/connect";
+
+import { refreshTrainerStripeStatus, startTrainerStripeOnboarding } from "./actions";
 import { TrainerProfileForm } from "@/components/forms/trainer-profile/trainer-profile-form";
 import type { TrainerProfileFormValues } from "@/components/forms/trainer-profile/types";
 import { Card, CardContent } from "@/components/ui/card";
