@@ -16,7 +16,7 @@ type TrainerDirectoryItem = {
 export type TrainerDetail = TrainerDirectoryItem & {
   trainerUserId: string;
   headline: string;
-  sessionOfferings: Array<{ id: string; title: string; description: string; durationMinutes: number; price: string }>;
+  sessionOfferings: Array<{ id: string; title: string; description: string; durationMinutes: number; price: string; format: string }>;
   subscriptionPlans: Array<{ id: string; name: string; description: string; priceMonthly: string }>;
   reviews: Array<{ id: string; rating: number; title: string; comment: string; reviewerName: string; createdAt: string }>;
   premiumPosts: Array<{ id: string; title: string; body: string; publishedAt: string }>;
@@ -35,6 +35,19 @@ function toPrice(amount: number | string, currency: string) {
   const numeric = Number(amount);
 
   return new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(numeric);
+}
+
+function decodeDescription(value: string | null) {
+  const input = value ?? "";
+  const match = input.match(/^\[\[format:(online|in_person|hybrid)\]\]\n?/i);
+  if (!match) {
+    return { format: "online", description: input };
+  }
+
+  return {
+    format: match[1].toLowerCase(),
+    description: input.replace(/^\[\[format:(online|in_person|hybrid)\]\]\n?/i, ""),
+  };
 }
 
 function avatarDataUri(name: string) {
@@ -152,13 +165,18 @@ export async function getTrainerDetail(locale: Locale, trainerId: string): Promi
     ],
     rating: ratings.length ? ratings.reduce((sum, value) => sum + value, 0) / ratings.length : null,
     reviewCount: ratings.length,
-    sessionOfferings: (onboardingComplete ? trainer.offerings : []).map((offering) => ({
-      id: offering.id,
-      title: localized(offering.titleEn, offering.titleJa, locale),
-      description: localized(offering.descriptionEn, offering.descriptionJa, locale),
-      durationMinutes: offering.durationMinutes,
-      price: toPrice(offering.price.toString(), offering.currency),
-    })),
+    sessionOfferings: (onboardingComplete ? trainer.offerings : []).map((offering) => {
+      const selected = locale === "ja" ? decodeDescription(offering.descriptionJa) : decodeDescription(offering.descriptionEn);
+      const fallback = decodeDescription(locale === "ja" ? offering.descriptionEn : offering.descriptionJa);
+      return {
+        id: offering.id,
+        title: localized(offering.titleEn, offering.titleJa, locale),
+        description: selected.description || fallback.description,
+        format: selected.format || fallback.format,
+        durationMinutes: offering.durationMinutes,
+        price: toPrice(offering.price.toString(), offering.currency),
+      };
+    }),
     subscriptionPlans: (onboardingComplete ? trainer.plans : []).map((plan) => ({
       id: plan.id,
       name: localized(plan.nameEn, plan.nameJa, locale),
