@@ -5,12 +5,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { PurchaseSubscriptionButton } from "@/components/subscriptions/purchase-subscription-button";
+import { SessionBookingForm } from "@/components/bookings/session-booking-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Locale } from "@/lib/constants/locales";
 import { dictionary } from "@/lib/i18n/dictionary";
 import { getPrismaClient } from "@/lib/prisma";
 import { hasActiveSubscriptionForTrainer } from "@/lib/subscriptions";
 import { getTrainerDetail } from "@/lib/trainers";
+import { createBooking } from "./actions";
 
 export async function generateMetadata({
   params,
@@ -59,6 +61,12 @@ export default async function TrainerDetailPage({
   const hasAccess = dbUser
     ? await hasActiveSubscriptionForTrainer(dbUser.id, trainerId)
     : false;
+  const formatLabel = (format: string) =>
+    format === "in_person"
+      ? copy.sessionFormatInPerson
+      : format === "hybrid"
+        ? copy.sessionFormatHybrid
+        : copy.sessionFormatOnline;
 
   return (
     <div className="space-y-6">
@@ -133,7 +141,7 @@ export default async function TrainerDetailPage({
                   <p className="font-semibold">{offering.title}</p>
                   <p className="text-sm text-muted-foreground">{offering.description || copy.trainerNoDescription}</p>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    {offering.durationMinutes} min · {offering.price}
+                    {offering.durationMinutes} min · {offering.price} · {copy.sessionFormat}: {formatLabel(offering.format)}
                   </p>
                 </div>
               ))
@@ -189,6 +197,25 @@ export default async function TrainerDetailPage({
           )}
         </CardContent>
       </Card>
+      {canPurchase && trainer.sessionOfferings.length ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>{copy.sessionBookingTitle}</CardTitle>
+            <CardDescription>{copy.sessionBookingDescription}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <SessionBookingForm
+              offerings={trainer.sessionOfferings}
+              action={createBooking.bind(null, locale, trainer.id)}
+              copy={{
+                button: copy.sessionBookButton,
+                startsAt: copy.sessionStartsAt,
+                timezone: copy.sessionTimezone,
+              }}
+            />
+          </CardContent>
+        </Card>
+      ) : null}
 
       <section className="grid gap-4 md:grid-cols-2">
         <Card>
