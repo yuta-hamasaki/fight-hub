@@ -1,9 +1,10 @@
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 enum UserRole {
@@ -30,6 +31,11 @@ enum ContentStatus {
   DRAFT
   PUBLISHED
   ARCHIVED
+}
+
+enum PremiumContentType {
+  TEXT
+  YOUTUBE
 }
 
 model User {
@@ -74,8 +80,18 @@ model Profile {
 model TrainerProfile {
   id              String            @id @default(cuid())
   userId          String            @unique
+  profileImageUrl String?           @db.VarChar(2048)
   headline        String?
   headlineJa      String?
+  shortBio        String?
+  shortBioJa      String?
+  longBio         String?
+  longBioJa       String?
+  languages       Json?
+  achievements    Json?
+  certifications  Json?
+  coachingFormats Json?
+  socialLinks     Json?
   experienceYears Int?
   hourlyRate      Decimal?          @db.Decimal(10, 2)
   currency        String            @default("JPY") @db.VarChar(3)
@@ -118,6 +134,7 @@ model SubscriptionPlan {
   updatedAt        DateTime         @updatedAt
   trainerProfile   TrainerProfile   @relation(fields: [trainerProfileId], references: [id], onDelete: Cascade)
   purchases        SubscriptionPurchase[]
+  contentAccesses  ContentAccess[]
 
   @@index([trainerProfileId, isActive])
 }
@@ -125,18 +142,38 @@ model SubscriptionPlan {
 model ContentPost {
   id               String        @id @default(cuid())
   authorId         String
+  contentType      PremiumContentType @default(TEXT)
   titleEn          String
   titleJa          String?
+  summaryEn        String?
+  summaryJa        String?
   bodyEn           String
   bodyJa           String?
+  thumbnailUrl     String?       @db.VarChar(2048)
+  youtubeUrl       String?       @db.VarChar(2048)
+  templateKey      String?       @db.VarChar(64)
+  isPremium        Boolean       @default(false)
   status           ContentStatus @default(DRAFT)
   publishedAt      DateTime?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
   author           User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  accesses         ContentAccess[]
 
   @@index([authorId, status])
   @@index([publishedAt])
+}
+
+model ContentAccess {
+  id                 String           @id @default(cuid())
+  contentPostId      String
+  subscriptionPlanId String
+  createdAt          DateTime         @default(now())
+  contentPost        ContentPost      @relation(fields: [contentPostId], references: [id], onDelete: Cascade)
+  subscriptionPlan   SubscriptionPlan @relation(fields: [subscriptionPlanId], references: [id], onDelete: Cascade)
+
+  @@unique([contentPostId, subscriptionPlanId])
+  @@index([subscriptionPlanId])
 }
 
 model SessionOffering {
@@ -182,20 +219,24 @@ model Booking {
 }
 
 model SubscriptionPurchase {
-  id                 String         @id @default(cuid())
-  userId             String
-  subscriptionPlanId String
-  status             PurchaseStatus @default(ACTIVE)
-  startedAt          DateTime       @default(now())
-  expiresAt          DateTime?
-  canceledAt         DateTime?
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
-  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  subscriptionPlan   SubscriptionPlan @relation(fields: [subscriptionPlanId], references: [id], onDelete: Restrict)
+  id                   String           @id @default(cuid())
+  userId               String
+  subscriptionPlanId   String
+  status               PurchaseStatus   @default(ACTIVE)
+  stripeCheckoutSessionId String?       @unique
+  stripeCustomerId     String?
+  stripeSubscriptionId String?          @unique
+  startedAt            DateTime         @default(now())
+  expiresAt            DateTime?
+  canceledAt           DateTime?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  user                 User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscriptionPlan     SubscriptionPlan @relation(fields: [subscriptionPlanId], references: [id], onDelete: Restrict)
 
   @@index([userId, status])
   @@index([subscriptionPlanId])
+  @@index([stripeCustomerId])
 }
 
 model Review {
