@@ -4,6 +4,8 @@ export const dictionary = {
   en: {
     appName: "Fight Hub",
     tagline: "Build your fitness marketplace faster.",
+    welcome: "Initial setup is ready.",
+    switchLanguage: "Language",
     welcome: "Authentication foundation is ready.",
     homeDescription: "Sign in with Google or email, pick a role, and continue to your dashboard.",
     switchLanguage: "Language",
@@ -175,6 +177,8 @@ export const dictionary = {
   ja: {
     appName: "Fight Hub",
     tagline: "フィットネスマーケットプレイスを素早く構築。",
+    welcome: "初期セットアップが完了しました。",
+    switchLanguage: "言語",
     welcome: "認証の基盤設定が完了しました。",
     homeDescription: "Google またはメールでサインインし、役割を選んでダッシュボードに進みます。",
     switchLanguage: "言語",
