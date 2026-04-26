@@ -37,6 +37,12 @@ enum PremiumContentType {
   YOUTUBE
 }
 
+enum StripeOnboardingStatus {
+  NOT_STARTED
+  PENDING
+  COMPLETED
+}
+
 model User {
   id                   String                 @id @default(cuid())
   clerkUserId          String                 @unique
@@ -262,6 +268,7 @@ model StripeAccount {
   id                    String   @id @default(cuid())
   userId                String   @unique
   stripeAccountId       String   @unique
+  onboardingStatus      StripeOnboardingStatus @default(NOT_STARTED)
   chargesEnabled        Boolean  @default(false)
   payoutsEnabled        Boolean  @default(false)
   detailsSubmitted      Boolean  @default(false)
