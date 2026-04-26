@@ -1,5 +1,5 @@
 import type { Locale } from "@/lib/constants/locales";
-import { getPrismaClient } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 
 export type ActiveSubscriptionItem = {
   id: string;
@@ -62,8 +62,6 @@ function localized(valueEn: string | null | undefined, valueJa: string | null | 
 }
 
 export async function hasActiveSubscriptionForTrainer(userId: string, trainerProfileId: string): Promise<boolean> {
-  const prisma = getPrismaClient();
-
   const purchase = await prisma.subscriptionPurchase.findFirst({
     where: {
       userId,
@@ -79,8 +77,6 @@ export async function hasActiveSubscriptionForTrainer(userId: string, trainerPro
 }
 
 export async function getActiveSubscriptions(userId: string, locale: Locale): Promise<ActiveSubscriptionItem[]> {
-  const prisma = getPrismaClient();
-
   const subscriptions = (await prisma.subscriptionPurchase.findMany({
     where: {
       userId,
@@ -128,8 +124,6 @@ export async function getActiveSubscriptions(userId: string, locale: Locale): Pr
 }
 
 export async function getAccessiblePremiumPosts(userId: string, locale: Locale): Promise<PremiumPostItem[]> {
-  const prisma = getPrismaClient();
-
   const activePlanIds = (await prisma.subscriptionPurchase.findMany({
     where: {
       userId,

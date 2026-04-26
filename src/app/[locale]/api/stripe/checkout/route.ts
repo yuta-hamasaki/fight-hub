@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 import { getStripeClient } from "@/lib/stripe";
-import { getPrismaClient } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(
   request: Request,
@@ -21,8 +21,6 @@ export async function GET(
   if (!planId) {
     return NextResponse.redirect(new URL(`/${locale}/trainers`, request.url));
   }
-
-  const prisma = getPrismaClient();
   const dbUser = (await prisma.user.findUnique({
     where: { clerkUserId: userId },
     select: { id: true, role: true, email: true },

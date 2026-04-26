@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { requireDbUser } from "@/lib/auth/session";
 import type { Locale } from "@/lib/constants/locales";
 import { dictionary } from "@/lib/i18n/dictionary";
-import { getPrismaClient } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 
 import { savePremiumContent, setPremiumContentPublishStatus } from "./actions";
 
@@ -27,7 +27,6 @@ type PremiumContentRecord = {
 export default async function TrainerPremiumContentPage({ params }: { params: Promise<{ locale: Locale }> }) {
   const { locale } = await params;
   const copy = dictionary[locale];
-  const prisma = getPrismaClient();
   const user = await requireDbUser(locale);
 
   if (user.role !== "TRAINER") {

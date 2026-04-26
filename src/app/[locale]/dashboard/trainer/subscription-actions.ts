@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import type { Locale } from "@/lib/constants/locales";
 import { requireDbUser } from "@/lib/auth/session";
-import { getPrismaClient } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 
 import type { SubscriptionPlanFormState } from "./subscription-plan-types";
 
@@ -27,8 +27,6 @@ export async function saveSubscriptionPlan(
   formData: FormData,
 ): Promise<SubscriptionPlanFormState> {
   const user = await requireDbUser(locale);
-  const prisma = getPrismaClient();
-
   if (user.role !== "TRAINER") {
     return { status: "error", message: "Only trainers can manage plans." };
   }
@@ -103,8 +101,6 @@ export async function saveSubscriptionPlan(
 
 export async function setPlanPublishStatus(locale: Locale, planId: string, isActive: boolean) {
   const user = await requireDbUser(locale);
-  const prisma = getPrismaClient();
-
   if (user.role !== "TRAINER") {
     return;
   }

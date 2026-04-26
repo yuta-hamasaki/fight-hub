@@ -9,7 +9,7 @@ import { SessionBookingForm } from "@/components/bookings/session-booking-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Locale } from "@/lib/constants/locales";
 import { dictionary } from "@/lib/i18n/dictionary";
-import { getPrismaClient } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import { hasActiveSubscriptionForTrainer } from "@/lib/subscriptions";
 import { getTrainerDetail } from "@/lib/trainers";
 import { createBooking } from "./actions";
@@ -49,8 +49,6 @@ export default async function TrainerDetailPage({
   }
 
   const { userId } = await auth();
-  const prisma = getPrismaClient();
-
   const dbUser = userId
     ? ((await prisma.user.findUnique({
         where: { clerkUserId: userId },

@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { requireDbUser } from "@/lib/auth/session";
 import type { Locale } from "@/lib/constants/locales";
 import { dictionary } from "@/lib/i18n/dictionary";
-import { getPrismaClient } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 
 type ContentDetailRecord = {
   id: string;
@@ -29,8 +29,6 @@ export default async function ClientPremiumContentDetailPage({
   const { locale, contentId } = await params;
   const copy = dictionary[locale];
   const user = await requireDbUser(locale);
-  const prisma = getPrismaClient();
-
   if (user.role !== "CLIENT") {
     redirect(`/${locale}/dashboard`);
   }
