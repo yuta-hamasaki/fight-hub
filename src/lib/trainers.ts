@@ -1,5 +1,5 @@
 import type { Locale } from "@/lib/constants/locales";
-import { getPrismaClient } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 
 type TrainerDirectoryItem = {
   id: string;
@@ -71,8 +71,6 @@ function buildLanguages(locale: string | null | undefined): string[] {
 }
 
 export async function getTrainerDirectory(locale: Locale): Promise<TrainerDirectoryItem[]> {
-  const prisma = getPrismaClient();
-
   const trainers = (await prisma.trainerProfile.findMany({
     where: { isPublished: true },
     include: {
@@ -113,8 +111,6 @@ export async function getTrainerDirectory(locale: Locale): Promise<TrainerDirect
 }
 
 export async function getTrainerDetail(locale: Locale, trainerId: string): Promise<TrainerDetail | null> {
-  const prisma = getPrismaClient();
-
   const trainer = await prisma.trainerProfile.findFirst({
     where: { id: trainerId, isPublished: true },
     include: {

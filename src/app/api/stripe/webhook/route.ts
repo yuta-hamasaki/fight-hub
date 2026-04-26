@@ -1,6 +1,6 @@
 import Stripe from "stripe";
 
-import { getPrismaClient } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import { getStripeClient } from "@/lib/stripe";
 
 export async function POST(request: Request) {
@@ -20,9 +20,6 @@ export async function POST(request: Request) {
   } catch {
     return new Response("Invalid signature", { status: 400 });
   }
-
-  const prisma = getPrismaClient();
-
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
     const dbUserId = session.metadata?.dbUserId;
@@ -64,7 +61,7 @@ export async function POST(request: Request) {
   }
 
   return Response.json({ received: true });
-import { getPrismaClient } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import { getStripeClient } from "@/lib/stripe/connect";
 
 function getWebhookSecret() {
@@ -92,8 +89,6 @@ export async function POST(request: Request) {
 
     if (event.type === "account.updated") {
       const account = event.data.object;
-      const prisma = getPrismaClient();
-
       await prisma.stripeAccount.updateMany({
         where: { stripeAccountId: account.id },
         data: {

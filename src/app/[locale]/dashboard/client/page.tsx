@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { requireDbUser } from "@/lib/auth/session";
 import type { Locale } from "@/lib/constants/locales";
 import { dictionary } from "@/lib/i18n/dictionary";
-import { getPrismaClient } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import { getAccessiblePremiumPosts, getActiveSubscriptions } from "@/lib/subscriptions";
 
 export default async function ClientDashboardPage({
@@ -20,8 +20,6 @@ export default async function ClientDashboardPage({
   if (user.role !== "CLIENT") {
     redirect(`/${locale}/dashboard`);
   }
-
-  const prisma = getPrismaClient();
   const [subscriptions, premiumPosts, bookings] = await Promise.all([
     getActiveSubscriptions(user.id, locale),
     getAccessiblePremiumPosts(user.id, locale),

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import type { Locale } from "@/lib/constants/locales";
-import { getPrismaClient } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import { requireDbUser } from "@/lib/auth/session";
 import type {
   TrainerProfileFormState,
@@ -121,8 +121,6 @@ export async function saveTrainerProfile(
   formData: FormData,
 ): Promise<TrainerProfileFormState> {
   const user = await requireDbUser(locale);
-  const prisma = getPrismaClient();
-
   if (user.role !== "TRAINER") {
     return {
       status: "error",

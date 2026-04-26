@@ -1,6 +1,6 @@
 import Stripe from "stripe";
 
-import { getPrismaClient } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 
 export type StripeOnboardingStatus = {
   hasAccount: boolean;
@@ -38,7 +38,6 @@ export function isStripeOnboardingComplete(status: {
 }
 
 export async function getTrainerStripeOnboardingStatus(userId: string): Promise<StripeOnboardingStatus> {
-  const prisma = getPrismaClient();
   const account = await prisma.stripeAccount.findUnique({
     where: { userId },
     select: {
@@ -71,7 +70,6 @@ export async function getTrainerStripeOnboardingStatus(userId: string): Promise<
 }
 
 export async function createOrFetchStripeConnectedAccount(userId: string, email: string | null) {
-  const prisma = getPrismaClient();
   const existing = await prisma.stripeAccount.findUnique({ where: { userId } });
 
   if (existing) {
@@ -102,8 +100,6 @@ export async function createOrFetchStripeConnectedAccount(userId: string, email:
 export async function syncStripeAccountState(stripeAccountId: string) {
   const stripe = getStripeClient();
   const account = await stripe.accounts.retrieve(stripeAccountId);
-  const prisma = getPrismaClient();
-
   return prisma.stripeAccount.update({
     where: { stripeAccountId },
     data: {

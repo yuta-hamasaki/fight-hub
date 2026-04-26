@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { requireDbUser } from "@/lib/auth/session";
 import type { Locale } from "@/lib/constants/locales";
-import { getPrismaClient } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 
 function t(value: FormDataEntryValue | null) {
   return String(value ?? "").trim();
@@ -31,8 +31,6 @@ export { decodeDescription };
 
 export async function saveSessionOffering(locale: Locale, formData: FormData) {
   const user = await requireDbUser(locale);
-  const prisma = getPrismaClient();
-
   if (user.role !== "TRAINER") {
     return;
   }
@@ -84,8 +82,6 @@ export async function saveSessionOffering(locale: Locale, formData: FormData) {
 
 export async function updateBookingStatus(locale: Locale, formData: FormData) {
   const user = await requireDbUser(locale);
-  const prisma = getPrismaClient();
-
   if (user.role !== "TRAINER") {
     return;
   }

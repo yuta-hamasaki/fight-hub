@@ -2,7 +2,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 
 import type { Locale } from "@/lib/constants/locales";
-import { getPrismaClient } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 
 export type DbRole = "CLIENT" | "TRAINER" | "ADMIN";
 
@@ -34,7 +34,6 @@ export async function requireAuth(locale: Locale) {
 }
 
 export async function ensureDbUser(clerkUserId: string): Promise<DbUser> {
-  const prisma = getPrismaClient();
   const clerkProfile = await currentUser();
 
   const primaryEmail = clerkProfile?.emailAddresses.find(

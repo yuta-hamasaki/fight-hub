@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { requireDbUser } from "@/lib/auth/session";
 import type { Locale } from "@/lib/constants/locales";
 import { dictionary } from "@/lib/i18n/dictionary";
-import { getPrismaClient } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 
 import { saveTrainerProfile } from "./actions";
 import { decodeDescription, saveSessionOffering, updateBookingStatus } from "./session-actions";
@@ -40,8 +40,6 @@ export default async function TrainerDashboardPage({ params }: { params: Promise
   const { locale } = await params;
   const copy = dictionary[locale];
   const user = await requireDbUser(locale);
-  const prisma = getPrismaClient();
-
   if (user.role !== "TRAINER") {
     redirect(`/${locale}/dashboard`);
   }

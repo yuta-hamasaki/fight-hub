@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { requireDbUser } from "@/lib/auth/session";
 import type { Locale } from "@/lib/constants/locales";
-import { getPrismaClient } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 
 function stringValue(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
@@ -29,7 +29,6 @@ function isValidHttpUrl(value: string) {
 }
 
 export async function savePremiumContent(locale: Locale, formData: FormData): Promise<void> {
-  const prisma = getPrismaClient();
   const user = await requireDbUser(locale);
 
   if (user.role !== "TRAINER") {
@@ -132,7 +131,6 @@ export async function savePremiumContent(locale: Locale, formData: FormData): Pr
 }
 
 export async function setPremiumContentPublishStatus(locale: Locale, formData: FormData): Promise<void> {
-  const prisma = getPrismaClient();
   const user = await requireDbUser(locale);
 
   if (user.role !== "TRAINER") {
