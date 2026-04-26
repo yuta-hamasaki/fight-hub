@@ -37,32 +37,32 @@ export default async function ClientDashboardPage({
   ]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <Card className="border-blue-100 bg-white">
         <CardHeader>
           <CardTitle>{copy.clientDashboardTitle}</CardTitle>
           <CardDescription>{copy.clientDashboardDescription}</CardDescription>
         </CardHeader>
-        <CardContent>{copy.clientDashboardBody}</CardContent>
+        <CardContent className="text-sm text-muted-foreground">{copy.clientDashboardBody}</CardContent>
       </Card>
 
       <section className="grid gap-4 md:grid-cols-3">
         <Card className="border-blue-100">
           <CardHeader>
             <CardDescription>{copy.subscriptionActiveTitle}</CardDescription>
-            <CardTitle className="text-xl">{subscriptions.length}</CardTitle>
+            <CardTitle className="text-xl text-blue-700">{subscriptions.length}</CardTitle>
           </CardHeader>
         </Card>
         <Card className="border-blue-100">
           <CardHeader>
             <CardDescription>{copy.sessionBookingHistoryTitle}</CardDescription>
-            <CardTitle className="text-xl">{bookings.length}</CardTitle>
+            <CardTitle className="text-xl text-blue-700">{bookings.length}</CardTitle>
           </CardHeader>
         </Card>
         <Card className="border-blue-100">
           <CardHeader>
             <CardDescription>{copy.dashboardPurchasedContent}</CardDescription>
-            <CardTitle className="text-xl">{premiumPosts.length}</CardTitle>
+            <CardTitle className="text-xl text-blue-700">{premiumPosts.length}</CardTitle>
           </CardHeader>
         </Card>
       </section>
@@ -110,8 +110,8 @@ export default async function ClientDashboardPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>{copy.subscriptionPremiumContent}</CardTitle>
-          <CardDescription>
+          <CardTitle>{copy.dashboardPurchasedContent}</CardTitle>
+          <CardDescription className="text-blue-700">
             <Link href={`/${locale}/dashboard/client/content`} className="underline">
               {copy.clientPremiumOpenList}
             </Link>
@@ -129,6 +129,20 @@ export default async function ClientDashboardPage({
           ) : (
             <p className="text-sm text-muted-foreground">{copy.subscriptionNoPremiumPosts}</p>
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-blue-100">
+        <CardHeader>
+          <CardTitle>{copy.dashboardContentAccessPoints}</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-2 sm:grid-cols-2">
+          <Link href={`/${locale}/dashboard/client/content`} className="rounded-md border border-blue-100 p-3 text-sm font-medium text-blue-700 hover:bg-blue-50">
+            {copy.clientPremiumOpenList}
+          </Link>
+          <Link href={`/${locale}/trainers`} className="rounded-md border border-blue-100 p-3 text-sm font-medium text-blue-700 hover:bg-blue-50">
+            {copy.trainers}
+          </Link>
         </CardContent>
       </Card>
     </div>
