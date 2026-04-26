@@ -14,20 +14,20 @@ function encodeDescription(description: string, format: string) {
   return `[[format:${format}]]\n${description}`.trim();
 }
 
-function decodeDescription(value: string | null) {
-  const input = value ?? "";
-  const match = input.match(/^\[\[format:(online|in_person|hybrid)\]\]\n?/i);
-  if (!match) {
-    return { format: "online", description: input };
-  }
+// function decodeDescription(value: string | null) {
+//   const input = value ?? "";
+//   const match = input.match(/^\[\[format:(online|in_person|hybrid)\]\]\n?/i);
+//   if (!match) {
+//     return { format: "online", description: input };
+//   }
 
-  return {
-    format: match[1].toLowerCase(),
-    description: input.replace(/^\[\[format:(online|in_person|hybrid)\]\]\n?/i, ""),
-  };
-}
+//   return {
+//     format: match[1].toLowerCase(),
+//     description: input.replace(/^\[\[format:(online|in_person|hybrid)\]\]\n?/i, ""),
+//   };
+// }
 
-export { decodeDescription };
+// export { decodeDescription };
 
 export async function saveSessionOffering(locale: Locale, formData: FormData) {
   const user = await requireDbUser(locale);

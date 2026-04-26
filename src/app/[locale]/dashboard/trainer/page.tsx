@@ -11,7 +11,8 @@ import { dictionary } from "@/lib/i18n/dictionary";
 import { prisma } from "@/lib/prisma";
 
 import { saveTrainerProfile } from "./actions";
-import { decodeDescription, saveSessionOffering, updateBookingStatus } from "./session-actions";
+import { saveSessionOffering, updateBookingStatus } from "./session-actions";
+import { decodeDescription } from "./session-utils";
 import { INITIAL_SUBSCRIPTION_PLAN_STATE } from "./subscription-plan-types";
 import { saveSubscriptionPlan, setPlanPublishStatus } from "./subscription-actions";
 
@@ -150,9 +151,9 @@ export default async function TrainerDashboardPage({ params }: { params: Promise
           <CardDescription>{copy.premiumContentManageDescription}</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button asChild>
-            <Link href={`/${locale}/dashboard/trainer/content`}>{copy.premiumContentOpenManager}</Link>
-          </Button>
+          <Link href={`/${locale}/dashboard/trainer/content`}>
+            <Button>{copy.premiumContentOpenManager}</Button>
+          </Link>
         </CardContent>
       </Card>
 

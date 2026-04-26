@@ -96,7 +96,7 @@ export function TrainerProfileForm({
         </Field>
         <Field
           id="profileImageUrl"
-          label="Profile image URL / プロフィール画像URL"
+          label="Profile image URL / プロフィール画像URL （任意・optional）"
           error={state.fieldErrors.profileImageUrl}
         >
           <Input
