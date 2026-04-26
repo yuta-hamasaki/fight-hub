@@ -70,11 +70,21 @@ export default async function TrainerDashboardPage({ params }: { params: Promise
 
   const now = new Date();
   const onboardingComplete = Boolean(stripeAccount?.detailsSubmitted && stripeAccount?.chargesEnabled && stripeAccount?.payoutsEnabled);
-  const profileCompleted = Boolean(profile?.displayName && trainerProfile?.shortBio && categories.length && toStringArray(trainerProfile?.coachingFormats).length);
+  const profileChecklist = [
+    Boolean(profile?.displayName),
+    Boolean(trainerProfile?.shortBio),
+    categories.length > 0,
+    toStringArray(trainerProfile?.coachingFormats).length > 0,
+  ];
+  const profileCompletionRatio = `${profileChecklist.filter(Boolean).length}/${profileChecklist.length}`;
+  const profileCompleted = profileChecklist.every(Boolean);
   const activePlanCount = plans.filter((plan) => plan.isActive).length;
+  const totalPlanCount = plans.length;
   const activeOfferingCount = offerings.filter((offering) => offering.isActive).length;
+  const totalOfferingCount = offerings.length;
   const pendingBookingCount = bookings.filter((booking) => booking.status === "PENDING").length;
   const upcomingBookingCount = bookings.filter((booking) => booking.startsAt >= now && booking.status !== "CANCELED").length;
+  const completedBookingCount = bookings.filter((booking) => booking.status === "COMPLETED").length;
   const estimatedEarnings = bookings
     .filter((booking) => booking.status === "COMPLETED")
     .reduce((sum, booking) => sum + Number(booking.sessionOffering.price), 0);
@@ -92,37 +102,46 @@ export default async function TrainerDashboardPage({ params }: { params: Promise
         <Card className="border-blue-100">
           <CardHeader>
             <CardDescription>{copy.dashboardProfileCompletion}</CardDescription>
-            <CardTitle className="text-xl">{profileCompleted ? copy.dashboardComplete : copy.dashboardIncomplete}</CardTitle>
+            <CardTitle className="text-xl text-blue-700">{profileCompletionRatio}</CardTitle>
+            <p className="text-sm text-muted-foreground">{profileCompleted ? copy.dashboardComplete : copy.dashboardIncomplete}</p>
           </CardHeader>
         </Card>
         <Card className="border-blue-100">
           <CardHeader>
             <CardDescription>{copy.dashboardStripeStatus}</CardDescription>
-            <CardTitle className="text-xl">{onboardingComplete ? copy.dashboardComplete : copy.dashboardIncomplete}</CardTitle>
+            <CardTitle className="text-xl text-blue-700">{onboardingComplete ? copy.dashboardComplete : copy.dashboardIncomplete}</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              {stripeAccount?.detailsSubmitted ? copy.trainerStripeDetailSubmitted : copy.dashboardIncomplete} ·{" "}
+              {stripeAccount?.chargesEnabled ? copy.trainerStripeChargesEnabled : copy.dashboardIncomplete}
+            </p>
           </CardHeader>
         </Card>
         <Card className="border-blue-100">
           <CardHeader>
             <CardDescription>{copy.dashboardSubscriptionSummary}</CardDescription>
-            <CardTitle className="text-xl">{activePlanCount} {copy.dashboardActiveLabel}</CardTitle>
+            <CardTitle className="text-xl text-blue-700">{activePlanCount} {copy.dashboardActiveLabel}</CardTitle>
+            <p className="text-sm text-muted-foreground">{totalPlanCount} {copy.dashboardTotalLabel}</p>
           </CardHeader>
         </Card>
         <Card className="border-blue-100">
           <CardHeader>
             <CardDescription>{copy.dashboardContentSummary}</CardDescription>
-            <CardTitle className="text-xl">{contentCount} {copy.dashboardPremiumPostsLabel}</CardTitle>
+            <CardTitle className="text-xl text-blue-700">{contentCount} {copy.dashboardPremiumPostsLabel}</CardTitle>
+            <p className="text-sm text-muted-foreground">{activeOfferingCount}/{totalOfferingCount} {copy.dashboardActiveOfferingsLabel}</p>
           </CardHeader>
         </Card>
         <Card className="border-blue-100">
           <CardHeader>
             <CardDescription>{copy.dashboardBookingSummary}</CardDescription>
-            <CardTitle className="text-xl">{upcomingBookingCount} {copy.dashboardUpcoming} · {pendingBookingCount} {copy.dashboardPending}</CardTitle>
+            <CardTitle className="text-xl text-blue-700">{upcomingBookingCount} {copy.dashboardUpcoming}</CardTitle>
+            <p className="text-sm text-muted-foreground">{pendingBookingCount} {copy.dashboardPending} · {completedBookingCount} {copy.dashboardCompletedLabel}</p>
           </CardHeader>
         </Card>
         <Card className="border-blue-100">
           <CardHeader>
             <CardDescription>{copy.dashboardEarningsSummary}</CardDescription>
-            <CardTitle className="text-xl">{copy.dashboardEstimated}: {asMoney(estimatedEarnings, locale)}</CardTitle>
+            <CardTitle className="text-xl text-blue-700">{copy.dashboardEstimated}: {asMoney(estimatedEarnings, locale)}</CardTitle>
+            <p className="text-sm text-muted-foreground">{completedBookingCount} {copy.dashboardCompletedLabel} {copy.dashboardBookingsLabel}</p>
           </CardHeader>
         </Card>
       </section>
