@@ -76,7 +76,7 @@ export async function savePremiumContent(locale: Locale, formData: FormData): Pr
       return;
     }
 
-    await prisma.$transaction(async (tx: { [key: string]: { [key: string]: (...args: unknown[]) => Promise<unknown> } }) => {
+    await prisma.$transaction(async (tx) => {
       await tx.contentPost.update({
         where: { id: contentId },
         data: {
