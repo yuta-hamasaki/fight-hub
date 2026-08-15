@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireDbUser } from "@/lib/auth/session";
 import type { Locale } from "@/lib/constants/locales";
@@ -43,9 +43,9 @@ export default async function StripeRefreshPage({ params }: { params: Promise<{ 
         </CardHeader>
         <CardContent className="space-y-4">
           <StripeOnboardingButton locale={locale} idleLabel={copy.cta} loadingLabel={copy.loading} />
-          <Button asChild variant="outline">
-            <Link href={`/${locale}/trainer/dashboard/stripe`}>{copy.back}</Link>
-          </Button>
+          <Link className={buttonVariants({ variant: "outline" })} href={`/${locale}/trainer/dashboard/stripe`}>
+            {copy.back}
+          </Link>
         </CardContent>
       </Card>
     </div>

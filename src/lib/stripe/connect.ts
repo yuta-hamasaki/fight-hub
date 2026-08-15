@@ -100,14 +100,33 @@ export async function createOrFetchStripeConnectedAccount(userId: string, email:
 export async function syncStripeAccountState(stripeAccountId: string) {
   const stripe = getStripeClient();
   const account = await stripe.accounts.retrieve(stripeAccountId);
-  return prisma.stripeAccount.update({
-    where: { stripeAccountId },
-    data: {
-      detailsSubmitted: account.details_submitted,
-      chargesEnabled: account.charges_enabled,
-      payoutsEnabled: account.payouts_enabled,
-    },
+  const onboardingComplete = isStripeOnboardingComplete({
+    detailsSubmitted: account.details_submitted,
+    chargesEnabled: account.charges_enabled,
+    payoutsEnabled: account.payouts_enabled,
   });
+  const existing = await prisma.stripeAccount.findUniqueOrThrow({
+    where: { stripeAccountId },
+    select: { userId: true },
+  });
+
+  const [updated] = await prisma.$transaction([
+    prisma.stripeAccount.update({
+      where: { stripeAccountId },
+      data: {
+        onboardingStatus: onboardingComplete ? "COMPLETED" : "PENDING",
+        detailsSubmitted: account.details_submitted,
+        chargesEnabled: account.charges_enabled,
+        payoutsEnabled: account.payouts_enabled,
+      },
+    }),
+    prisma.trainerProfile.updateMany({
+      where: { userId: existing.userId },
+      data: { isPublished: onboardingComplete },
+    }),
+  ]);
+
+  return updated;
 }
 
 export async function createStripeOnboardingLink(stripeAccountId: string, locale: string) {

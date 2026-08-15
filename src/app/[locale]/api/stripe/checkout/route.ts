@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { getStripeClient } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
+import { PLATFORM_FEE_BPS } from "@/lib/billing/fees";
 
 export async function GET(
   request: Request,
@@ -31,13 +32,18 @@ export async function GET(
   }
 
   const plan = await prisma.subscriptionPlan.findFirst({
-    where: { id: planId, isActive: true },
+    where: {
+      id: planId,
+      isActive: true,
+      trainerProfile: { isPublished: true },
+    },
     include: {
       trainerProfile: {
         include: {
           user: {
             include: {
               profile: true,
+              stripeAccount: true,
             },
           },
         },
@@ -47,6 +53,15 @@ export async function GET(
 
   if (!plan) {
     return NextResponse.redirect(new URL(`/${locale}/trainers`, request.url));
+  }
+
+  const connectedAccount = plan.trainerProfile.user.stripeAccount;
+  if (
+    !connectedAccount?.detailsSubmitted ||
+    !connectedAccount.chargesEnabled ||
+    !connectedAccount.payoutsEnabled
+  ) {
+    return NextResponse.redirect(new URL(`/${locale}/trainers/${plan.trainerProfileId}`, request.url));
   }
 
   const stripe = getStripeClient();
@@ -61,6 +76,17 @@ export async function GET(
       dbUserId: dbUser.id,
       subscriptionPlanId: plan.id,
       trainerProfileId: plan.trainerProfileId,
+    },
+    subscription_data: {
+      application_fee_percent: PLATFORM_FEE_BPS / 100,
+      transfer_data: {
+        destination: connectedAccount.stripeAccountId,
+      },
+      metadata: {
+        dbUserId: dbUser.id,
+        subscriptionPlanId: plan.id,
+        trainerProfileId: plan.trainerProfileId,
+      },
     },
     line_items: [
       {

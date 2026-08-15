@@ -29,15 +29,23 @@ export async function syncStripeAccountForCurrentTrainer(locale: Locale) {
     payoutsEnabled: account.payouts_enabled,
   });
 
-  return prisma.stripeAccount.update({
-    where: { userId: user.id },
-    data: {
-      detailsSubmitted: account.details_submitted,
-      chargesEnabled: account.charges_enabled,
-      payoutsEnabled: account.payouts_enabled,
-      onboardingStatus: completed ? "COMPLETED" : "PENDING",
-    },
-  });
+  const [updated] = await prisma.$transaction([
+    prisma.stripeAccount.update({
+      where: { userId: user.id },
+      data: {
+        detailsSubmitted: account.details_submitted,
+        chargesEnabled: account.charges_enabled,
+        payoutsEnabled: account.payouts_enabled,
+        onboardingStatus: completed ? "COMPLETED" : "PENDING",
+      },
+    }),
+    prisma.trainerProfile.updateMany({
+      where: { userId: user.id },
+      data: { isPublished: completed },
+    }),
+  ]);
+
+  return updated;
 }
 
 export async function startStripeRegistration(locale: Locale) {
