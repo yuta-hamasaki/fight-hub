@@ -15,6 +15,7 @@ export type TrainerProfileFormValues = {
   socialInstagram: string;
   socialX: string;
   socialYoutube: string;
+  isPublished: boolean;
 };
 
 export type TrainerProfileFormState = {

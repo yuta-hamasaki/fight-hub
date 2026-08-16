@@ -16,13 +16,12 @@ export default async function OnboardingPage({
 }) {
   const { locale } = await params;
   const copy = dictionary[locale];
-  const user = await requireDbUser(locale);
-
+  await requireDbUser(locale);
 
   async function chooseRole(role: "CLIENT" | "TRAINER") {
     "use server";
 
-    await saveRoleSelection(user.clerkUserId, role);
+    await saveRoleSelection(locale, role);
     redirect(dashboardPathForRole(locale, role));
   }
 

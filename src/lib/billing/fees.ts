@@ -11,3 +11,8 @@ export function calculatePlatformFeeAmount(amountInMinorUnits: number) {
 
   return Math.round((amountInMinorUnits * PLATFORM_FEE_BPS) / 10_000);
 }
+
+/** Stripe Connect `application_fee_percent` expects a whole-number percent (600 bps = 6). */
+export function platformFeePercent() {
+  return PLATFORM_FEE_BPS / 100;
+}

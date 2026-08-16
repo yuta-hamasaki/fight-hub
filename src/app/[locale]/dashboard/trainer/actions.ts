@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import type { Locale } from "@/lib/constants/locales";
 import { prisma } from "@/lib/prisma";
+import { isStripeOnboardingComplete } from "@/lib/stripe/connect";
 import { requireDbUser } from "@/lib/auth/session";
 import type {
   TrainerProfileFormState,
@@ -146,6 +147,7 @@ export async function saveTrainerProfile(
     socialInstagram: toStringValue(formData, "socialInstagram"),
     socialX: toStringValue(formData, "socialX"),
     socialYoutube: toStringValue(formData, "socialYoutube"),
+    isPublished: formData.get("isPublished") === "on",
   };
 
   const validation = validate(values);
@@ -153,6 +155,28 @@ export async function saveTrainerProfile(
     return validation;
   }
 
+<<<<<<< HEAD
+=======
+  const stripeAccount = await prisma.stripeAccount.findUnique({
+    where: { userId: user.id },
+    select: {
+      detailsSubmitted: true,
+      chargesEnabled: true,
+      payoutsEnabled: true,
+    },
+  });
+
+  const onboardingComplete = stripeAccount ? isStripeOnboardingComplete(stripeAccount) : false;
+
+  if (values.isPublished && !onboardingComplete) {
+    return {
+      status: "error",
+      message: "Complete Stripe onboarding before publishing your profile to the marketplace.",
+      fieldErrors: {},
+    };
+  }
+
+>>>>>>> 9b4ca6c (fixed error)
   await prisma.$transaction(async (tx) => {
     await tx.profile.upsert({
       where: { userId: user.id },
@@ -190,6 +214,7 @@ export async function saveTrainerProfile(
           x: values.socialX,
           youtube: values.socialYoutube,
         },
+        isPublished: values.isPublished,
       },
       update: {
         profileImageUrl: values.profileImageUrl || null,
@@ -207,6 +232,7 @@ export async function saveTrainerProfile(
           x: values.socialX,
           youtube: values.socialYoutube,
         },
+        isPublished: values.isPublished,
       },
       select: { id: true },
     });
@@ -225,6 +251,7 @@ export async function saveTrainerProfile(
   });
 
   revalidatePath(`/${locale}/dashboard/trainer`);
+  revalidatePath(`/${locale}/trainers`);
 
   return {
     status: "success",

@@ -284,6 +284,8 @@ export default async function TrainerDashboardPage({ params }: { params: Promise
           credibility: copy.trainerProfileSectionCredibility,
           coaching: copy.trainerProfileSectionCoaching,
           socialLinks: copy.trainerProfileSectionSocial,
+          publishProfile: copy.trainerProfilePublishLabel,
+          publishProfileHelp: copy.trainerProfilePublishHelp,
         }}
         initialValues={{
           displayName: profile?.displayName ?? "",
@@ -302,6 +304,7 @@ export default async function TrainerDashboardPage({ params }: { params: Promise
           socialInstagram: toSocialValue(trainerProfile?.socialLinks, "instagram"),
           socialX: toSocialValue(trainerProfile?.socialLinks, "x"),
           socialYoutube: toSocialValue(trainerProfile?.socialLinks, "youtube"),
+          isPublished: trainerProfile?.isPublished ?? false,
         }}
         initialState={{ status: "idle", message: "", fieldErrors: {} }}
         action={saveTrainerProfile.bind(null, locale)}

@@ -21,6 +21,8 @@ type TrainerProfileFormCopy = {
   credibility: string;
   coaching: string;
   socialLinks: string;
+  publishProfile: string;
+  publishProfileHelp: string;
 };
 
 type TrainerProfileFormProps = {
@@ -192,6 +194,22 @@ export function TrainerProfileForm({
           <Input id="socialYoutube" name="socialYoutube" type="url" defaultValue={initialValues.socialYoutube} />
         </Field>
       </Section>
+
+      <section className="space-y-4 rounded-lg border border-border p-4">
+        <h3 className="font-medium">{copy.publishProfile}</h3>
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            name="isPublished"
+            defaultChecked={initialValues.isPublished}
+            className="mt-1"
+          />
+          <span>
+            {copy.publishProfile}
+            <span className="mt-1 block text-xs text-muted-foreground">{copy.publishProfileHelp}</span>
+          </span>
+        </label>
+      </section>
 
       {state.message ? (
         <p className={state.status === "success" ? "text-sm text-green-700" : "text-sm text-red-600"}>
