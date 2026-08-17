@@ -155,8 +155,6 @@ export async function saveTrainerProfile(
     return validation;
   }
 
-<<<<<<< HEAD
-=======
   const stripeAccount = await prisma.stripeAccount.findUnique({
     where: { userId: user.id },
     select: {
@@ -176,7 +174,6 @@ export async function saveTrainerProfile(
     };
   }
 
->>>>>>> 9b4ca6c (fixed error)
   await prisma.$transaction(async (tx) => {
     await tx.profile.upsert({
       where: { userId: user.id },

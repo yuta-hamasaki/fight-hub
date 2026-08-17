@@ -3,12 +3,8 @@ import { NextResponse } from "next/server";
 
 import { platformFeePercent } from "@/lib/billing/fees";
 import { prisma } from "@/lib/prisma";
-<<<<<<< HEAD
-import { PLATFORM_FEE_BPS } from "@/lib/billing/fees";
-=======
 import { isStripeOnboardingComplete } from "@/lib/stripe/connect";
 import { getStripeClient } from "@/lib/stripe";
->>>>>>> 9b4ca6c (fixed error)
 
 export async function GET(
   request: Request,
@@ -48,10 +44,6 @@ export async function GET(
         include: {
           user: {
             include: {
-<<<<<<< HEAD
-              profile: true,
-=======
->>>>>>> 9b4ca6c (fixed error)
               stripeAccount: true,
             },
           },
@@ -64,21 +56,11 @@ export async function GET(
     return NextResponse.redirect(new URL(`/${locale}/trainers`, request.url));
   }
 
-<<<<<<< HEAD
-  const connectedAccount = plan.trainerProfile.user.stripeAccount;
-  if (
-    !connectedAccount?.detailsSubmitted ||
-    !connectedAccount.chargesEnabled ||
-    !connectedAccount.payoutsEnabled
-  ) {
-    return NextResponse.redirect(new URL(`/${locale}/trainers/${plan.trainerProfileId}`, request.url));
-=======
   const stripeAccount = plan.trainerProfile.user.stripeAccount;
   if (!stripeAccount || !isStripeOnboardingComplete(stripeAccount)) {
     return NextResponse.redirect(
       new URL(`/${locale}/trainers/${plan.trainerProfileId}?purchase=unavailable`, request.url),
     );
->>>>>>> 9b4ca6c (fixed error)
   }
 
   const stripe = getStripeClient();
@@ -95,17 +77,10 @@ export async function GET(
       trainerProfileId: plan.trainerProfileId,
     },
     subscription_data: {
-<<<<<<< HEAD
-      application_fee_percent: PLATFORM_FEE_BPS / 100,
-      transfer_data: {
-        destination: connectedAccount.stripeAccountId,
-      },
-=======
       transfer_data: {
         destination: stripeAccount.stripeAccountId,
       },
       application_fee_percent: platformFeePercent(),
->>>>>>> 9b4ca6c (fixed error)
       metadata: {
         dbUserId: dbUser.id,
         subscriptionPlanId: plan.id,
