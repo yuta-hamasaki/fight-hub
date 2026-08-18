@@ -21,7 +21,7 @@ function getLocaleFromPath(pathname: string) {
     : null;
 }
 
-export default clerkMiddleware(async (auth, req) => {
+export const proxy = clerkMiddleware(async (auth, req) => {
   const { pathname } = req.nextUrl;
 
   if (pathname === "/") {
