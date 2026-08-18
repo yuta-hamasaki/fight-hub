@@ -37,10 +37,13 @@ export async function generateMetadata({
 
 export default async function TrainerDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: Locale; trainerId: string }>;
+  searchParams: Promise<{ booking?: string; purchase?: string }>;
 }) {
   const { locale, trainerId } = await params;
+  const result = await searchParams;
   const copy = dictionary[locale];
   const trainer = await getTrainerDetail(locale, trainerId);
 
@@ -68,6 +71,13 @@ export default async function TrainerDetailPage({
 
   return (
     <div className="space-y-6">
+      {result.booking ? (
+        <div className={`rounded-lg border p-4 text-sm font-medium ${result.booking === "canceled" ? "border-slate-200 bg-slate-50" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
+          {locale === "ja"
+            ? result.booking === "unavailable" ? "その時間は予約できません。別の日時を選択してください。" : result.booking === "canceled" ? "決済をキャンセルしました。" : "予約または決済を開始できませんでした。"
+            : result.booking === "unavailable" ? "That time is unavailable. Choose another time." : result.booking === "canceled" ? "Checkout was canceled." : "The booking or payment could not be started."}
+        </div>
+      ) : null}
       <Link href={`/${locale}/trainers`} className="text-sm font-medium underline-offset-4 hover:underline">
         {copy.trainerBackToList}
       </Link>

@@ -21,6 +21,21 @@ export function mapStripeSubscriptionStatus(status: Stripe.Subscription.Status):
 }
 
 export async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
+  if (session.mode === "payment") {
+    const bookingId = session.metadata?.bookingId;
+    if (!bookingId || (session.payment_status !== "paid" && session.payment_status !== "no_payment_required")) {
+      return;
+    }
+    await prisma.booking.updateMany({
+      where: { id: bookingId, stripeCheckoutSessionId: session.id, status: "PENDING" },
+      data: {
+        status: "CONFIRMED",
+        stripePaymentIntentId: typeof session.payment_intent === "string" ? session.payment_intent : null,
+      },
+    });
+    return;
+  }
+
   if (session.mode !== "subscription") {
     return;
   }
@@ -72,6 +87,14 @@ export async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Se
       stripeSubscriptionId: typeof session.subscription === "string" ? session.subscription : null,
       canceledAt: null,
     },
+  });
+}
+
+export async function handleCheckoutSessionExpired(session: Stripe.Checkout.Session) {
+  if (session.mode !== "payment") return;
+  await prisma.booking.updateMany({
+    where: { stripeCheckoutSessionId: session.id, status: "PENDING", stripePaymentIntentId: null },
+    data: { status: "CANCELED", canceledAt: new Date(), cancellationReason: "Checkout expired" },
   });
 }
 

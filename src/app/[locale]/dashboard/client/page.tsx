@@ -7,13 +7,18 @@ import type { Locale } from "@/lib/constants/locales";
 import { dictionary } from "@/lib/i18n/dictionary";
 import { prisma } from "@/lib/prisma";
 import { getAccessiblePremiumPosts, getActiveSubscriptions } from "@/lib/subscriptions";
+import { Button } from "@/components/ui/button";
+import { cancelBooking, openBillingPortal } from "./actions";
 
 export default async function ClientDashboardPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: Locale }>;
+  searchParams: Promise<{ booking?: string; purchase?: string }>;
 }) {
   const { locale } = await params;
+  const result = await searchParams;
   const copy = dictionary[locale];
   const user = await requireDbUser(locale);
 
@@ -36,6 +41,11 @@ export default async function ClientDashboardPage({
 
   return (
     <div className="space-y-6">
+      {result.booking === "success" || result.purchase === "success" ? (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">
+          {locale === "ja" ? "決済が完了しました。Stripeの確認後、ステータスが更新されます。" : "Payment completed. The status will update after Stripe confirms it."}
+        </div>
+      ) : null}
       <Card className="border-blue-100 bg-white">
         <CardHeader>
           <CardTitle>{copy.clientDashboardTitle}</CardTitle>
@@ -69,7 +79,12 @@ export default async function ClientDashboardPage({
         <CardHeader>
           <CardTitle>{copy.subscriptionActiveTitle}</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-3">
+          {subscriptions.length ? (
+            <form action={openBillingPortal.bind(null, locale)}>
+              <Button type="submit" variant="outline">{locale === "ja" ? "支払い方法・解約を管理" : "Manage billing and cancellation"}</Button>
+            </form>
+          ) : null}
           {subscriptions.length ? (
             subscriptions.map((subscription) => (
               <article key={subscription.id} className="rounded-lg border border-border p-3 text-sm">
@@ -98,6 +113,13 @@ export default async function ClientDashboardPage({
                 <p className="text-xs text-muted-foreground">
                   {new Intl.DateTimeFormat(locale === "ja" ? "ja-JP" : "en-US", { dateStyle: "medium", timeStyle: "short" }).format(booking.startsAt)} · {booking.status}
                 </p>
+                {booking.startsAt > new Date() && (booking.status === "PENDING" || booking.status === "CONFIRMED") ? (
+                  <form action={cancelBooking.bind(null, locale)} className="mt-3 flex flex-wrap gap-2">
+                    <input type="hidden" name="bookingId" value={booking.id} />
+                    <input name="reason" maxLength={300} placeholder={locale === "ja" ? "キャンセル理由（任意）" : "Cancellation reason (optional)"} className="min-w-48 flex-1 rounded-md border px-3 py-2" />
+                    <Button type="submit" size="sm" variant="outline">{locale === "ja" ? "予約をキャンセル・返金" : "Cancel and refund"}</Button>
+                  </form>
+                ) : null}
               </article>
             ))
           ) : (
