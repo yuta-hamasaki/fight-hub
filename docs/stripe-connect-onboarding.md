@@ -44,6 +44,8 @@ This keeps trainer onboarding status fresh even if changes happen directly in St
    - charges enabled
    - payouts enabled
 
+After onboarding is complete, trainers can use **Manage bank account and payouts** on the Stripe settings page. The app creates a short-lived Stripe Express Dashboard login link, where Stripe securely handles bank account, identity, and payout schedule changes. Bank details are never stored by Fight Hub.
+
 ## Platform fee policy (prepared)
 
 `src/lib/billing/fees.ts` contains:

@@ -1,10 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { requireDbUser } from "@/lib/auth/session";
 import type { Locale } from "@/lib/constants/locales";
 import { prisma } from "@/lib/prisma";
+import { calculatePlatformFeeAmount } from "@/lib/billing/fees";
+import { getAppBaseUrl, getStripeClient } from "@/lib/stripe";
+import { isStripeOnboardingComplete } from "@/lib/stripe/connect";
 
 function t(value: FormDataEntryValue | null) {
   return String(value ?? "").trim();
@@ -27,7 +31,7 @@ export async function createBooking(locale: Locale, trainerProfileId: string, fo
 
   const offering = await prisma.sessionOffering.findFirst({
     where: { id: sessionOfferingId, trainerProfileId, isActive: true },
-    select: { id: true, trainerUserId: true, durationMinutes: true },
+    include: { trainer: { include: { stripeAccount: true } } },
   });
 
   if (!offering) {
@@ -36,7 +40,36 @@ export async function createBooking(locale: Locale, trainerProfileId: string, fo
 
   const endsAt = new Date(startsAt.getTime() + offering.durationMinutes * 60 * 1000);
 
-  await prisma.booking.create({
+  if (startsAt <= new Date()) {
+    redirect(`/${locale}/trainers/${trainerProfileId}?booking=invalid-time`);
+  }
+
+  const [availability, conflict] = await Promise.all([
+    prisma.trainerAvailability.findMany({
+      where: { trainerId: offering.trainerUserId, dayOfWeek: startsAt.getUTCDay(), isActive: true },
+    }),
+    prisma.booking.findFirst({
+      where: {
+        trainerId: offering.trainerUserId,
+        status: { in: ["PENDING", "CONFIRMED"] },
+        startsAt: { lt: endsAt },
+        endsAt: { gt: startsAt },
+      },
+      select: { id: true },
+    }),
+  ]);
+  const startMinute = startsAt.getUTCHours() * 60 + startsAt.getUTCMinutes();
+  const endMinute = endsAt.getUTCHours() * 60 + endsAt.getUTCMinutes();
+  if (conflict || (availability.length > 0 && !availability.some((rule) => startMinute >= rule.startMinute && endMinute <= rule.endMinute))) {
+    redirect(`/${locale}/trainers/${trainerProfileId}?booking=unavailable`);
+  }
+
+  const stripeAccount = offering.trainer.stripeAccount;
+  if (!stripeAccount || !isStripeOnboardingComplete(stripeAccount)) {
+    redirect(`/${locale}/trainers/${trainerProfileId}?booking=payment-unavailable`);
+  }
+
+  const booking = await prisma.booking.create({
     data: {
       sessionOfferingId: offering.id,
       clientId: user.id,
@@ -45,9 +78,38 @@ export async function createBooking(locale: Locale, trainerProfileId: string, fo
       endsAt,
       notes: timezone ? `timezone:${timezone}` : null,
       status: "PENDING",
+      amountPaid: offering.price,
+      currency: offering.currency,
     },
   });
 
+  const amount = Math.round(Number(offering.price) * 100);
+  const session = await getStripeClient().checkout.sessions.create({
+    mode: "payment",
+    success_url: `${getAppBaseUrl()}/${locale}/dashboard/client?booking=success`,
+    cancel_url: `${getAppBaseUrl()}/${locale}/trainers/${trainerProfileId}?booking=canceled`,
+    metadata: { bookingId: booking.id },
+    payment_intent_data: {
+      application_fee_amount: calculatePlatformFeeAmount(amount),
+      transfer_data: { destination: stripeAccount.stripeAccountId },
+      metadata: { bookingId: booking.id },
+    },
+    line_items: [{
+      quantity: 1,
+      price_data: {
+        currency: offering.currency.toLowerCase(),
+        unit_amount: amount,
+        product_data: { name: offering.titleEn, description: offering.descriptionEn ?? undefined },
+      },
+    }],
+  });
+
+  await prisma.booking.update({ where: { id: booking.id }, data: { stripeCheckoutSessionId: session.id } });
+
   revalidatePath(`/${locale}/trainers/${trainerProfileId}`);
   revalidatePath(`/${locale}/dashboard/client`);
+  if (!session.url) {
+    redirect(`/${locale}/trainers/${trainerProfileId}?booking=payment-error`);
+  }
+  redirect(session.url);
 }

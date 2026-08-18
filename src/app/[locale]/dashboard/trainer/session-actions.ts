@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireDbUser } from "@/lib/auth/session";
 import type { Locale } from "@/lib/constants/locales";
 import { prisma } from "@/lib/prisma";
+import { getStripeClient } from "@/lib/stripe";
 
 function t(value: FormDataEntryValue | null) {
   return String(value ?? "").trim();
@@ -92,9 +93,22 @@ export async function updateBookingStatus(locale: Locale, formData: FormData) {
     return;
   }
 
+  if (status === "CANCELED") {
+    const booking = await prisma.booking.findFirst({
+      where: { id: bookingId, trainerId: user.id, status: { in: ["PENDING", "CONFIRMED"] } },
+      select: { stripePaymentIntentId: true },
+    });
+    if (booking?.stripePaymentIntentId) {
+      await getStripeClient().refunds.create({ payment_intent: booking.stripePaymentIntentId });
+    }
+  }
+
   await prisma.booking.updateMany({
     where: { id: bookingId, trainerId: user.id },
-    data: { status: status as "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELED" },
+    data: {
+      status: status as "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELED",
+      canceledAt: status === "CANCELED" ? new Date() : undefined,
+    },
   });
 
   revalidatePath(`/${locale}/dashboard/trainer`);

@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { getStripeClient } from "@/lib/stripe";
 import {
   handleCheckoutSessionCompleted,
+  handleCheckoutSessionExpired,
   handleInvoicePaymentFailed,
   handleSubscriptionDeleted,
   handleSubscriptionUpdated,
@@ -27,6 +28,9 @@ export async function POST(request: Request) {
     switch (event.type) {
       case "checkout.session.completed":
         await handleCheckoutSessionCompleted(event.data.object);
+        break;
+      case "checkout.session.expired":
+        await handleCheckoutSessionExpired(event.data.object);
         break;
       case "customer.subscription.created":
       case "customer.subscription.updated":

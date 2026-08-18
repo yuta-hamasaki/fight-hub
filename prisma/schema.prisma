@@ -61,6 +61,7 @@ model User {
   reviewsGiven         Review[]               @relation("Reviewer")
   reviewsReceived      Review[]               @relation("ReviewTarget")
   stripeAccount        StripeAccount?
+  availabilityRules    TrainerAvailability[]
 
   @@index([role])
   @@index([createdAt])
@@ -212,6 +213,12 @@ model Booking {
   startsAt          DateTime
   endsAt            DateTime
   notes             String?
+  stripeCheckoutSessionId String?      @unique
+  stripePaymentIntentId   String?      @unique
+  amountPaid              Decimal?     @db.Decimal(10, 2)
+  currency                String       @default("JPY") @db.VarChar(3)
+  canceledAt              DateTime?
+  cancellationReason      String?
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
   sessionOffering   SessionOffering @relation(fields: [sessionOfferingId], references: [id], onDelete: Restrict)
@@ -221,6 +228,21 @@ model Booking {
   @@index([clientId, startsAt])
   @@index([trainerId, startsAt])
   @@index([status])
+}
+
+model TrainerAvailability {
+  id          String   @id @default(cuid())
+  trainerId   String
+  dayOfWeek   Int
+  startMinute Int
+  endMinute   Int
+  timezone    String   @default("UTC") @db.VarChar(64)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  trainer     User     @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+
+  @@index([trainerId, dayOfWeek, isActive])
 }
 
 model SubscriptionPurchase {

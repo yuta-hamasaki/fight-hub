@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { requireDbUser } from "@/lib/auth/session";
 import type { Locale } from "@/lib/constants/locales";
 import { prisma } from "@/lib/prisma";
-import { createStripeConnectedAccount, createStripeConnectOnboardingLink, retrieveStripeConnectedAccount } from "@/lib/stripe";
+import { createStripeConnectedAccount, createStripeConnectOnboardingLink, getStripeClient, retrieveStripeConnectedAccount } from "@/lib/stripe";
 
 function isOnboardingComplete(status: { detailsSubmitted: boolean; chargesEnabled: boolean; payoutsEnabled: boolean }) {
   return status.detailsSubmitted && status.chargesEnabled && status.payoutsEnabled;
@@ -81,4 +81,13 @@ export async function startStripeRegistration(locale: Locale) {
   });
 
   redirect(accountLink.url);
+}
+
+export async function openStripeDashboard(locale: Locale) {
+  const user = await requireDbUser(locale);
+  if (user.role !== "TRAINER") redirect(`/${locale}/dashboard`);
+  const account = await prisma.stripeAccount.findUnique({ where: { userId: user.id } });
+  if (!account) redirect(`/${locale}/trainer/dashboard/stripe`);
+  const loginLink = await getStripeClient().accounts.createLoginLink(account.stripeAccountId);
+  redirect(loginLink.url);
 }
