@@ -6,6 +6,8 @@ import type { Locale } from "@/lib/constants/locales";
 import { prisma } from "@/lib/prisma";
 
 import { StripeOnboardingButton } from "./StripeOnboardingButton";
+import { openStripeDashboard } from "./actions";
+import { Button } from "@/components/ui/button";
 
 type Copy = {
   title: string;
@@ -19,6 +21,8 @@ type Copy = {
   startCta: string;
   continueCta: string;
   loading: string;
+  dashboardCta: string;
+  dashboardHelp: string;
 };
 
 const COPY: Record<Locale, Copy> = {
@@ -34,6 +38,8 @@ const COPY: Record<Locale, Copy> = {
     startCta: "Start Stripe Registration",
     continueCta: "Continue Stripe Registration",
     loading: "Redirecting...",
+    dashboardCta: "Manage bank account and payouts",
+    dashboardHelp: "Open the secure Stripe Express dashboard to update your bank account, payout schedule, and identity details.",
   },
   ja: {
     title: "Stripe Connect登録",
@@ -47,6 +53,8 @@ const COPY: Record<Locale, Copy> = {
     startCta: "Stripe登録を開始",
     continueCta: "Stripe登録を続ける",
     loading: "リダイレクト中...",
+    dashboardCta: "銀行口座・入金設定を管理",
+    dashboardHelp: "Stripe Expressの安全な画面で、銀行口座、入金スケジュール、本人確認情報を更新できます。",
   },
 };
 
@@ -107,7 +115,13 @@ export default async function TrainerStripePage({ params }: { params: Promise<{ 
           </p>
 
           {status === "COMPLETED" ? (
-            <p className="text-sm font-medium text-emerald-700">{copy.completedMessage}</p>
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-emerald-700">{copy.completedMessage}</p>
+              <p className="text-sm text-muted-foreground">{copy.dashboardHelp}</p>
+              <form action={openStripeDashboard.bind(null, locale)}>
+                <Button type="submit">{copy.dashboardCta}</Button>
+              </form>
+            </div>
           ) : (
             <>
               <p className="text-sm text-muted-foreground">{status === "PENDING" ? copy.pendingMessage : null}</p>

@@ -15,6 +15,7 @@ import { saveSessionOffering, updateBookingStatus } from "./session-actions";
 import { decodeDescription } from "./session-utils";
 import { INITIAL_SUBSCRIPTION_PLAN_STATE } from "./subscription-plan-types";
 import { saveSubscriptionPlan, setPlanPublishStatus } from "./subscription-actions";
+import { deleteAvailability, saveAvailability } from "./availability-actions";
 
 function toStringArray(value: unknown) {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
@@ -45,7 +46,7 @@ export default async function TrainerDashboardPage({ params }: { params: Promise
     redirect(`/${locale}/dashboard`);
   }
 
-  const [profile, trainerProfile, categories, plans, offerings, bookings, contentCount, stripeAccount] = await Promise.all([
+  const [profile, trainerProfile, categories, plans, offerings, bookings, contentCount, stripeAccount, availability] = await Promise.all([
     prisma.profile.findUnique({ where: { userId: user.id } }),
     prisma.trainerProfile.findUnique({ where: { userId: user.id } }),
     prisma.trainerCategory.findMany({
@@ -65,6 +66,7 @@ export default async function TrainerDashboardPage({ params }: { params: Promise
     }),
     prisma.contentPost.count({ where: { authorId: user.id, isPremium: true } }),
     prisma.stripeAccount.findUnique({ where: { userId: user.id } }),
+    prisma.trainerAvailability.findMany({ where: { trainerId: user.id, isActive: true }, orderBy: [{ dayOfWeek: "asc" }, { startMinute: "asc" }] }),
   ]);
 
   const now = new Date();
@@ -144,6 +146,39 @@ export default async function TrainerDashboardPage({ params }: { params: Promise
           </CardHeader>
         </Card>
       </section>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{locale === "ja" ? "売上受取・銀行口座設定" : "Payout and bank settings"}</CardTitle>
+          <CardDescription>{locale === "ja" ? "Stripeで本人確認、銀行口座、入金設定を管理します。" : "Manage identity, bank account, and payout settings securely in Stripe."}</CardDescription>
+        </CardHeader>
+        <CardContent><Link href={`/${locale}/trainer/dashboard/stripe`}><Button>{locale === "ja" ? "Stripe設定を開く" : "Open Stripe settings"}</Button></Link></CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{locale === "ja" ? "予約受付時間" : "Booking availability"}</CardTitle>
+          <CardDescription>{locale === "ja" ? "UTC基準で予約を受け付ける曜日と時間帯を設定します。未設定の曜日は制限なしです。" : "Set weekly booking hours in UTC. Days without rules remain unrestricted."}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <form action={saveAvailability.bind(null, locale)} className="grid gap-2 sm:grid-cols-4">
+            <select name="dayOfWeek" className="rounded-md border px-3 py-2 text-sm">
+              {(locale === "ja" ? ["日", "月", "火", "水", "木", "金", "土"] : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]).map((day, index) => <option key={day} value={index}>{day}</option>)}
+            </select>
+            <input name="startTime" type="time" required className="rounded-md border px-3 py-2 text-sm" />
+            <input name="endTime" type="time" required className="rounded-md border px-3 py-2 text-sm" />
+            <Button type="submit">{locale === "ja" ? "受付時間を追加" : "Add hours"}</Button>
+          </form>
+          <div className="space-y-2">
+            {availability.map((rule) => (
+              <div key={rule.id} className="flex items-center justify-between rounded-md border p-3 text-sm">
+                <span>{["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][rule.dayOfWeek]} · {String(Math.floor(rule.startMinute / 60)).padStart(2, "0")}:{String(rule.startMinute % 60).padStart(2, "0")}–{String(Math.floor(rule.endMinute / 60)).padStart(2, "0")}:{String(rule.endMinute % 60).padStart(2, "0")} UTC</span>
+                <form action={deleteAvailability.bind(null, locale)}><input type="hidden" name="availabilityId" value={rule.id} /><Button type="submit" size="sm" variant="outline">{locale === "ja" ? "削除" : "Remove"}</Button></form>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
