@@ -1,6 +1,7 @@
 import type Stripe from "stripe";
 
-import { getStripeClient } from "@/lib/stripe";
+import { verifyStripeWebhook } from "@/lib/stripe/webhook-signature";
+import { processStripeWebhookEvent } from "@/lib/stripe/webhook-events";
 import {
   handleCheckoutSessionCompleted,
   handleCheckoutSessionExpired,
@@ -19,34 +20,36 @@ export async function POST(request: Request) {
 
   let event: Stripe.Event;
   try {
-    event = getStripeClient().webhooks.constructEvent(await request.text(), signature, secret);
+    event = verifyStripeWebhook(await request.text(), signature, secret);
   } catch {
     return new Response("Invalid signature", { status: 400 });
   }
 
   try {
-    switch (event.type) {
-      case "checkout.session.completed":
-        await handleCheckoutSessionCompleted(event.data.object);
-        break;
-      case "checkout.session.expired":
-        await handleCheckoutSessionExpired(event.data.object);
-        break;
-      case "customer.subscription.created":
-      case "customer.subscription.updated":
-        await handleSubscriptionUpdated(event.data.object);
-        break;
-      case "customer.subscription.deleted":
-        await handleSubscriptionDeleted(event.data.object);
-        break;
-      case "invoice.payment_failed":
-        await handleInvoicePaymentFailed(event.data.object);
-        break;
-      default:
-        break;
-    }
+    const result = await processStripeWebhookEvent(event, async (claimedEvent) => {
+      switch (claimedEvent.type) {
+        case "checkout.session.completed":
+          await handleCheckoutSessionCompleted(claimedEvent.data.object);
+          break;
+        case "checkout.session.expired":
+          await handleCheckoutSessionExpired(claimedEvent.data.object);
+          break;
+        case "customer.subscription.created":
+        case "customer.subscription.updated":
+          await handleSubscriptionUpdated(claimedEvent.data.object);
+          break;
+        case "customer.subscription.deleted":
+          await handleSubscriptionDeleted(claimedEvent.data.object);
+          break;
+        case "invoice.payment_failed":
+          await handleInvoicePaymentFailed(claimedEvent.data.object);
+          break;
+        default:
+          break;
+      }
+    });
 
-    return Response.json({ received: true });
+    return Response.json({ received: true, duplicate: result === "duplicate" });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Webhook handler failed";
     return Response.json({ error: message }, { status: 500 });
