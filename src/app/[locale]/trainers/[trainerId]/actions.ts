@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { calculatePlatformFeeAmount } from "@/lib/billing/fees";
 import { getAppBaseUrl, getStripeClient } from "@/lib/stripe";
 import { isStripeOnboardingComplete } from "@/lib/stripe/connect";
+import { isWithinAvailability } from "@/lib/bookings/availability";
 
 function t(value: FormDataEntryValue | null) {
   return String(value ?? "").trim();
@@ -58,9 +59,7 @@ export async function createBooking(locale: Locale, trainerProfileId: string, fo
       select: { id: true },
     }),
   ]);
-  const startMinute = startsAt.getUTCHours() * 60 + startsAt.getUTCMinutes();
-  const endMinute = endsAt.getUTCHours() * 60 + endsAt.getUTCMinutes();
-  if (conflict || (availability.length > 0 && !availability.some((rule) => startMinute >= rule.startMinute && endMinute <= rule.endMinute))) {
+  if (conflict || !isWithinAvailability({ startsAt, endsAt }, availability)) {
     redirect(`/${locale}/trainers/${trainerProfileId}?booking=unavailable`);
   }
 
