@@ -21,7 +21,7 @@ export default async function TrainerRevenuePage({ params }: { params: Promise<{
   const user = await requireDbUser(locale);
   if (user.role !== "TRAINER") redirect(`/${locale}/dashboard`);
 
-  const [bookings, purchases, stripeAccount] = await Promise.all([
+  const [bookings, purchases, bookingRevenue, subscriptionRevenue, stripeAccount] = await Promise.all([
     prisma.booking.findMany({
       where: { trainerId: user.id, status: "COMPLETED", stripePaymentIntentId: { not: null }, amountPaid: { not: null } },
       include: { sessionOffering: true }, orderBy: { startsAt: "desc" }, take: 100,
@@ -30,6 +30,14 @@ export default async function TrainerRevenuePage({ params }: { params: Promise<{
       where: { subscriptionPlan: { trainerProfile: { userId: user.id } } },
       include: { subscriptionPlan: true }, orderBy: { startedAt: "desc" }, take: 100,
     }),
+    prisma.booking.findMany({
+      where: { trainerId: user.id, status: "COMPLETED", stripePaymentIntentId: { not: null }, amountPaid: { not: null } },
+      select: { amountPaid: true },
+    }),
+    prisma.subscriptionPurchase.findMany({
+      where: { subscriptionPlan: { trainerProfile: { userId: user.id } } },
+      select: { subscriptionPlan: { select: { priceMonthly: true } } },
+    }),
     prisma.stripeAccount.findUnique({ where: { userId: user.id } }),
   ]);
 
@@ -37,7 +45,10 @@ export default async function TrainerRevenuePage({ params }: { params: Promise<{
     ...bookings.map((booking) => ({ id: booking.id, kind: "session" as const, label: booking.sessionOffering.titleEn, occurredAt: booking.startsAt, gross: Number(booking.amountPaid), currency: booking.currency })),
     ...purchases.map((purchase) => ({ id: purchase.id, kind: "subscription" as const, label: purchase.subscriptionPlan.nameEn, occurredAt: purchase.startedAt, gross: Number(purchase.subscriptionPlan.priceMonthly), currency: purchase.subscriptionPlan.currency })),
   ].sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime());
-  const summary = summarizeRevenue(transactions);
+  const summary = summarizeRevenue([
+    ...bookingRevenue.map((booking) => ({ gross: Number(booking.amountPaid) })),
+    ...subscriptionRevenue.map((purchase) => ({ gross: Number(purchase.subscriptionPlan.priceMonthly) })),
+  ]);
   const currency = transactions[0]?.currency ?? "JPY";
 
   let payouts: Array<{ id: string; amount: number; currency: string; arrivalDate: Date; status: string }> = [];
