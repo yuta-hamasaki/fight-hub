@@ -16,7 +16,7 @@ export type RevenueSummary = {
   transactionCount: number;
 };
 
-export function summarizeRevenue(transactions: RevenueTransaction[]): RevenueSummary {
+export function summarizeRevenue<T extends Pick<RevenueTransaction, "gross">>(transactions: T[]): RevenueSummary {
   return transactions.reduce<RevenueSummary>((summary, transaction) => {
     const grossMinor = Math.round(transaction.gross * 100);
     const fee = calculatePlatformFeeAmount(grossMinor) / 100;
