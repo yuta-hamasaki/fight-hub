@@ -18,7 +18,7 @@ export type TrainerDetail = TrainerDirectoryItem & {
   headline: string;
   sessionOfferings: Array<{ id: string; title: string; description: string; durationMinutes: number; price: string; format: string }>;
   subscriptionPlans: Array<{ id: string; name: string; description: string; priceMonthly: string }>;
-  reviews: Array<{ id: string; rating: number; title: string; comment: string; reviewerName: string; createdAt: string }>;
+  reviews: Array<{ id: string; reviewerId: string; rating: number; title: string; comment: string; reviewerName: string; createdAt: string }>;
   premiumPosts: Array<{ id: string; title: string; body: string; publishedAt: string }>;
   externalLinks: Array<{ label: string; href: string }>;
 };
@@ -187,6 +187,7 @@ export async function getTrainerDetail(locale: Locale, trainerId: string): Promi
     })),
     reviews: trainer.reviews.map((review) => ({
       id: review.id,
+      reviewerId: review.reviewerId,
       rating: review.rating,
       title: localized(review.titleEn, review.titleJa, locale),
       comment: localized(review.commentEn, review.commentJa, locale),

@@ -1,5 +1,32 @@
 # Martial Arts Trainer Marketplace MVP — Architecture & Delivery Plan
 
+> **Document status:** This file began as the MVP planning document. The repository has since implemented the core marketplace flow. The current routes and setup commands in [`README.md`](../README.md) are authoritative where they differ from the original proposal below.
+
+## Current implementation status (August 2026)
+
+- **Discovery:** Public bilingual trainer directory and trainer detail pages are implemented.
+- **Commerce:** Paid session Checkout, monthly subscription Checkout, Stripe Connect Express transfers, and idempotent webhook handling are implemented.
+- **Client tools:** Booking/subscription dashboards, premium-content access, and client-owned trainer review create/edit/delete flows are implemented.
+- **Trainer tools:** Profile, offerings, availability, bookings, plans, premium content, Stripe onboarding, and revenue reporting are implemented.
+- **Revenue reporting:** `/{locale}/dashboard/trainer/revenue` reports gross sales, the 6% platform fee, estimated trainer net revenue, transaction history, and connected-account payouts.
+- **Review integrity:** The database permits one review per client/trainer pair, and all review mutations re-check authentication, role, and ownership on the server.
+
+### Implemented route layout
+
+The application uses locale-prefixed App Router pages directly under `src/app/[locale]` rather than the proposed route groups shown later in this document:
+
+```txt
+src/app/[locale]/trainers
+src/app/[locale]/trainers/[trainerId]
+src/app/[locale]/dashboard/client
+src/app/[locale]/dashboard/trainer
+src/app/[locale]/dashboard/trainer/content
+src/app/[locale]/dashboard/trainer/revenue
+src/app/[locale]/trainer/dashboard/stripe
+src/app/api/stripe/webhook
+src/app/api/stripe/connect/webhook
+```
+
 ## 1) MVP Architecture Plan
 
 ### Product approach (MVP-first)
@@ -14,7 +41,7 @@
 - **Frontend:** Next.js 16 App Router + TypeScript + Tailwind + shadcn/ui.
 - **Auth:** Clerk for sign-in/up and role-bound onboarding.
 - **Database:** PostgreSQL (Neon) via Prisma ORM.
-- **Payments:** Stripe Connect Standard (trainer payouts) + Stripe Checkout/PaymentIntents for purchases.
+- **Payments:** Stripe Connect Express (trainer payouts) + Stripe Checkout/PaymentIntents for purchases.
 - **Content:** DB records for premium posts (text + private YouTube links).
 - **Bilingual:** Core route groups and dictionaries for English/Japanese from day one.
 

@@ -305,6 +305,7 @@ model Review {
 
   @@index([trainerProfileId, createdAt])
   @@index([targetUserId])
+  @@unique([trainerProfileId, reviewerId])
 }
 
 model StripeAccount {
