@@ -10,9 +10,54 @@ import { calculatePlatformFeeAmount } from "@/lib/billing/fees";
 import { getAppBaseUrl, getStripeClient } from "@/lib/stripe";
 import { isStripeOnboardingComplete } from "@/lib/stripe/connect";
 import { isWithinAvailability } from "@/lib/bookings/availability";
+import type { ReviewActionState } from "@/components/trainers/review-manager";
 
 function t(value: FormDataEntryValue | null) {
   return String(value ?? "").trim();
+}
+
+export async function manageReview(
+  locale: Locale,
+  trainerProfileId: string,
+  _state: ReviewActionState,
+  formData: FormData,
+): Promise<ReviewActionState> {
+  const user = await requireDbUser(locale);
+  if (user.role !== "CLIENT") {
+    return { status: "error", message: locale === "ja" ? "クライアントのみレビューを投稿できます。" : "Only clients can review trainers." };
+  }
+
+  const trainer = await prisma.trainerProfile.findFirst({
+    where: { id: trainerProfileId, isPublished: true },
+    select: { userId: true },
+  });
+  if (!trainer) return { status: "error", message: locale === "ja" ? "トレーナーが見つかりません。" : "Trainer not found." };
+
+  if (t(formData.get("intent")) === "delete") {
+    await prisma.review.deleteMany({ where: { trainerProfileId, reviewerId: user.id } });
+    revalidatePath(`/${locale}/trainers/${trainerProfileId}`);
+    revalidatePath(`/${locale}/trainers`);
+    return { status: "success", message: locale === "ja" ? "レビューを削除しました。" : "Review deleted." };
+  }
+
+  const rating = Number(t(formData.get("rating")));
+  const title = t(formData.get("title"));
+  const comment = t(formData.get("comment"));
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5 || title.length > 100 || !comment || comment.length > 1000) {
+    return { status: "error", message: locale === "ja" ? "評価とコメントを確認してください。" : "Check the rating and comment." };
+  }
+
+  const localized = locale === "ja"
+    ? { titleJa: title || null, commentJa: comment, titleEn: null, commentEn: null }
+    : { titleEn: title || null, commentEn: comment, titleJa: null, commentJa: null };
+  await prisma.review.upsert({
+    where: { trainerProfileId_reviewerId: { trainerProfileId, reviewerId: user.id } },
+    create: { trainerProfileId, reviewerId: user.id, targetUserId: trainer.userId, rating, ...localized },
+    update: { rating, ...localized },
+  });
+  revalidatePath(`/${locale}/trainers/${trainerProfileId}`);
+  revalidatePath(`/${locale}/trainers`);
+  return { status: "success", message: locale === "ja" ? "レビューを保存しました。" : "Review saved." };
 }
 
 export async function createBooking(locale: Locale, trainerProfileId: string, formData: FormData) {

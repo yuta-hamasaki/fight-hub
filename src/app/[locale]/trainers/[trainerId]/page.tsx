@@ -6,13 +6,14 @@ import { notFound } from "next/navigation";
 
 import { PurchaseSubscriptionButton } from "@/components/subscriptions/purchase-subscription-button";
 import { SessionBookingForm } from "@/components/bookings/session-booking-form";
+import { ReviewManager } from "@/components/trainers/review-manager";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Locale } from "@/lib/constants/locales";
 import { dictionary } from "@/lib/i18n/dictionary";
 import { prisma } from "@/lib/prisma";
 import { hasActiveSubscriptionForTrainer } from "@/lib/subscriptions";
 import { getTrainerDetail } from "@/lib/trainers";
-import { createBooking } from "./actions";
+import { createBooking, manageReview } from "./actions";
 
 export async function generateMetadata({
   params,
@@ -59,6 +60,7 @@ export default async function TrainerDetailPage({
       })) as { id: string; role: string } | null)
     : null;
   const canPurchase = dbUser?.role === "CLIENT";
+  const ownReview = dbUser ? trainer.reviews.find((review) => review.reviewerId === dbUser.id) : undefined;
   const hasAccess = dbUser
     ? await hasActiveSubscriptionForTrainer(dbUser.id, trainerId)
     : false;
@@ -231,6 +233,22 @@ export default async function TrainerDetailPage({
             <CardTitle>{copy.trainerReviews}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            {canPurchase ? (
+              <ReviewManager
+                action={manageReview.bind(null, locale, trainer.id)}
+                existingReview={ownReview}
+                copy={{
+                  title: locale === "ja" ? "レビューを投稿" : "Your review",
+                  description: locale === "ja" ? "評価とコメントはいつでも編集・削除できます。" : "You can edit or delete your rating and comment at any time.",
+                  rating: locale === "ja" ? "評価" : "Rating",
+                  reviewTitle: locale === "ja" ? "タイトル（任意）" : "Title (optional)",
+                  comment: locale === "ja" ? "コメント" : "Comment",
+                  create: locale === "ja" ? "投稿する" : "Post review",
+                  update: locale === "ja" ? "更新する" : "Update review",
+                  delete: locale === "ja" ? "削除する" : "Delete review",
+                }}
+              />
+            ) : null}
             {trainer.reviews.length ? (
               trainer.reviews.map((review) => (
                 <article key={review.id} className="rounded-lg border border-border p-3">

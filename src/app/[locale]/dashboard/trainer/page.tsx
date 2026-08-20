@@ -152,7 +152,10 @@ export default async function TrainerDashboardPage({ params }: { params: Promise
           <CardTitle>{locale === "ja" ? "売上受取・銀行口座設定" : "Payout and bank settings"}</CardTitle>
           <CardDescription>{locale === "ja" ? "Stripeで本人確認、銀行口座、入金設定を管理します。" : "Manage identity, bank account, and payout settings securely in Stripe."}</CardDescription>
         </CardHeader>
-        <CardContent><Link href={`/${locale}/trainer/dashboard/stripe`}><Button>{locale === "ja" ? "Stripe設定を開く" : "Open Stripe settings"}</Button></Link></CardContent>
+        <CardContent className="flex flex-wrap gap-2">
+          <Link href={`/${locale}/dashboard/trainer/revenue`}><Button>{locale === "ja" ? "収益ダッシュボードを開く" : "Open revenue dashboard"}</Button></Link>
+          <Link href={`/${locale}/trainer/dashboard/stripe`}><Button variant="outline">{locale === "ja" ? "Stripe設定を開く" : "Open Stripe settings"}</Button></Link>
+        </CardContent>
       </Card>
 
       <Card>
