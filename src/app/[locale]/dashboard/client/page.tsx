@@ -8,6 +8,7 @@ import { dictionary } from "@/lib/i18n/dictionary";
 import { prisma } from "@/lib/prisma";
 import { getAccessiblePremiumPosts, getActiveSubscriptions } from "@/lib/subscriptions";
 import { Button } from "@/components/ui/button";
+import { LineConnectionCard } from "@/components/line/line-connection-card";
 import { cancelBooking, openBillingPortal } from "./actions";
 
 export default async function ClientDashboardPage({
@@ -15,7 +16,7 @@ export default async function ClientDashboardPage({
   searchParams,
 }: {
   params: Promise<{ locale: Locale }>;
-  searchParams: Promise<{ booking?: string; purchase?: string }>;
+  searchParams: Promise<{ booking?: string; purchase?: string; line?: string }>;
 }) {
   const { locale } = await params;
   const result = await searchParams;
@@ -25,7 +26,7 @@ export default async function ClientDashboardPage({
   if (user.role !== "CLIENT") {
     redirect(`/${locale}/dashboard`);
   }
-  const [subscriptions, premiumPosts, bookings] = await Promise.all([
+  const [subscriptions, premiumPosts, bookings, lineConnection] = await Promise.all([
     getActiveSubscriptions(user.id, locale),
     getAccessiblePremiumPosts(user.id, locale),
     prisma.booking.findMany({
@@ -37,6 +38,7 @@ export default async function ClientDashboardPage({
       orderBy: { startsAt: "desc" },
       take: 20,
     }),
+    prisma.lineConnection.findUnique({ where: { userId: user.id } }),
   ]);
 
   return (
@@ -53,6 +55,14 @@ export default async function ClientDashboardPage({
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">{copy.clientDashboardBody}</CardContent>
       </Card>
+
+      <LineConnectionCard
+        locale={locale}
+        role="client"
+        connected={Boolean(lineConnection)}
+        enabled={lineConnection?.notificationEnabled}
+        copy={{ title: copy.lineClientTitle, description: copy.lineClientDescription, email: copy.lineEmail, enabled: copy.lineEnabled, line: copy.lineLabel, connected: copy.lineConnected, notConnected: copy.lineNotConnected, connect: copy.lineConnect, disconnect: copy.lineDisconnect, enable: copy.lineEnable, disable: copy.lineDisable }}
+      />
 
       <section className="grid gap-4 md:grid-cols-3">
         <Card className="border-blue-100">

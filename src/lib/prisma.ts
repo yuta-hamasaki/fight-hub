@@ -8,7 +8,7 @@ const globalForPrisma = globalThis as unknown as {
 
 // Increment this value whenever the Prisma schema gains a model. This prevents
 // Next.js development HMR from reusing a client created from an older schema.
-const PRISMA_SCHEMA_VERSION = 2;
+const PRISMA_SCHEMA_VERSION = 3;
 
 function normalizedDatabaseUrl(value: string | undefined) {
   if (!value) {

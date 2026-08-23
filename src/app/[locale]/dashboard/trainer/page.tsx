@@ -9,6 +9,7 @@ import { requireDbUser } from "@/lib/auth/session";
 import type { Locale } from "@/lib/constants/locales";
 import { dictionary } from "@/lib/i18n/dictionary";
 import { prisma } from "@/lib/prisma";
+import { LineConnectionCard } from "@/components/line/line-connection-card";
 
 import { saveTrainerProfile } from "./actions";
 import { saveSessionOffering, updateBookingStatus } from "./session-actions";
@@ -46,7 +47,7 @@ export default async function TrainerDashboardPage({ params }: { params: Promise
     redirect(`/${locale}/dashboard`);
   }
 
-  const [profile, trainerProfile, categories, plans, offerings, bookings, contentCount, stripeAccount, availability] = await Promise.all([
+  const [profile, trainerProfile, categories, plans, offerings, bookings, contentCount, stripeAccount, availability, lineConnection] = await Promise.all([
     prisma.profile.findUnique({ where: { userId: user.id } }),
     prisma.trainerProfile.findUnique({ where: { userId: user.id } }),
     prisma.trainerCategory.findMany({
@@ -67,6 +68,7 @@ export default async function TrainerDashboardPage({ params }: { params: Promise
     prisma.contentPost.count({ where: { authorId: user.id, isPremium: true } }),
     prisma.stripeAccount.findUnique({ where: { userId: user.id } }),
     prisma.trainerAvailability.findMany({ where: { trainerId: user.id, isActive: true }, orderBy: [{ dayOfWeek: "asc" }, { startMinute: "asc" }] }),
+    prisma.lineConnection.findUnique({ where: { userId: user.id } }),
   ]);
 
   const now = new Date();
@@ -98,6 +100,14 @@ export default async function TrainerDashboardPage({ params }: { params: Promise
           <CardDescription>{copy.trainerDashboardDescription}</CardDescription>
         </CardHeader>
       </Card>
+
+      <LineConnectionCard
+        locale={locale}
+        role="trainer"
+        connected={Boolean(lineConnection)}
+        enabled={lineConnection?.notificationEnabled}
+        copy={{ title: copy.lineTrainerTitle, description: copy.lineTrainerDescription, email: copy.lineEmail, enabled: copy.lineEnabled, line: copy.lineLabel, connected: copy.lineConnected, notConnected: copy.lineNotConnected, connect: copy.lineConnect, disconnect: copy.lineDisconnect, enable: copy.lineEnable, disable: copy.lineDisable }}
+      />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <Card className="border-blue-100">
