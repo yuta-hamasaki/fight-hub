@@ -2,6 +2,7 @@ import type { PurchaseStatus } from "@prisma/client";
 import type Stripe from "stripe";
 
 import { prisma } from "@/lib/prisma";
+import { notificationService } from "@/lib/notifications/service";
 
 export function mapStripeSubscriptionStatus(status: Stripe.Subscription.Status): PurchaseStatus {
   switch (status) {
@@ -26,13 +27,20 @@ export async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Se
     if (!bookingId || (session.payment_status !== "paid" && session.payment_status !== "no_payment_required")) {
       return;
     }
-    await prisma.booking.updateMany({
+    const confirmed = await prisma.booking.updateMany({
       where: { id: bookingId, stripeCheckoutSessionId: session.id, status: "PENDING" },
       data: {
         status: "CONFIRMED",
         stripePaymentIntentId: typeof session.payment_intent === "string" ? session.payment_intent : null,
       },
     });
+    if (confirmed.count > 0) {
+      // Notifications are best-effort and must never roll back a paid booking.
+      await Promise.allSettled([
+        notificationService.bookingConfirmed(bookingId),
+        notificationService.newTrainerBooking(bookingId),
+      ]);
+    }
     return;
   }
 

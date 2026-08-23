@@ -49,6 +49,17 @@ enum StripeWebhookStatus {
   FAILED
 }
 
+enum NotificationChannel {
+  LINE
+}
+
+enum NotificationType {
+  BOOKING_CONFIRMED
+  TRAINER_NEW_BOOKING
+  BOOKING_REMINDER_24H
+  REVIEW_REQUEST
+}
+
 model StripeWebhookEvent {
   id            String              @id @default(cuid())
   stripeEventId String              @unique
@@ -65,49 +76,51 @@ model StripeWebhookEvent {
 }
 
 model User {
-  id                   String                 @id @default(cuid())
-  clerkUserId          String                 @unique
-  email                String?                @unique
-  role                 UserRole               @default(CLIENT)
-  isActive             Boolean                @default(true)
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime               @updatedAt
-  profile              Profile?
-  trainerProfile       TrainerProfile?
-  contentPosts         ContentPost[]
-  sessionOfferings     SessionOffering[]
-  clientBookings       Booking[]              @relation("ClientBookings")
-  trainerBookings      Booking[]              @relation("TrainerBookings")
+  id                    String                 @id @default(cuid())
+  clerkUserId           String                 @unique
+  email                 String?                @unique
+  role                  UserRole               @default(CLIENT)
+  isActive              Boolean                @default(true)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  profile               Profile?
+  trainerProfile        TrainerProfile?
+  contentPosts          ContentPost[]
+  sessionOfferings      SessionOffering[]
+  clientBookings        Booking[]              @relation("ClientBookings")
+  trainerBookings       Booking[]              @relation("TrainerBookings")
   subscriptionPurchases SubscriptionPurchase[]
-  reviewsGiven         Review[]               @relation("Reviewer")
-  reviewsReceived      Review[]               @relation("ReviewTarget")
-  stripeAccount        StripeAccount?
-  availabilityRules    TrainerAvailability[]
+  reviewsGiven          Review[]               @relation("Reviewer")
+  reviewsReceived       Review[]               @relation("ReviewTarget")
+  stripeAccount         StripeAccount?
+  availabilityRules     TrainerAvailability[]
+  lineConnection        LineConnection?
+  notificationLogs      NotificationLog[]
 
   @@index([role])
   @@index([createdAt])
 }
 
 model Profile {
-  id              String   @id @default(cuid())
-  userId          String   @unique
-  displayName     String
-  displayNameJa   String?
-  bio             String?
-  bioJa           String?
-  locale          String?  @db.VarChar(10)
-  timezone        String?  @db.VarChar(64)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  displayName   String
+  displayNameJa String?
+  bio           String?
+  bioJa         String?
+  locale        String?  @db.VarChar(10)
+  timezone      String?  @db.VarChar(64)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([displayName])
 }
 
 model TrainerProfile {
-  id              String            @id @default(cuid())
-  userId          String            @unique
-  profileImageUrl String?           @db.VarChar(2048)
+  id              String             @id @default(cuid())
+  userId          String             @unique
+  profileImageUrl String?            @db.VarChar(2048)
   headline        String?
   headlineJa      String?
   shortBio        String?
@@ -120,12 +133,12 @@ model TrainerProfile {
   coachingFormats Json?
   socialLinks     Json?
   experienceYears Int?
-  hourlyRate      Decimal?          @db.Decimal(10, 2)
-  currency        String            @default("JPY") @db.VarChar(3)
-  isPublished     Boolean           @default(false)
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hourlyRate      Decimal?           @db.Decimal(10, 2)
+  currency        String             @default("JPY") @db.VarChar(3)
+  isPublished     Boolean            @default(false)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   categories      TrainerCategory[]
   plans           SubscriptionPlan[]
   offerings       SessionOffering[]
@@ -135,31 +148,31 @@ model TrainerProfile {
 }
 
 model TrainerCategory {
-  id               String           @id @default(cuid())
+  id               String         @id @default(cuid())
   trainerProfileId String
-  key              String           @db.VarChar(64)
+  key              String         @db.VarChar(64)
   labelEn          String
   labelJa          String?
-  createdAt        DateTime         @default(now())
-  trainerProfile   TrainerProfile   @relation(fields: [trainerProfileId], references: [id], onDelete: Cascade)
+  createdAt        DateTime       @default(now())
+  trainerProfile   TrainerProfile @relation(fields: [trainerProfileId], references: [id], onDelete: Cascade)
 
   @@unique([trainerProfileId, key])
   @@index([key])
 }
 
 model SubscriptionPlan {
-  id               String           @id @default(cuid())
+  id               String                 @id @default(cuid())
   trainerProfileId String
   nameEn           String
   nameJa           String?
   descriptionEn    String?
   descriptionJa    String?
-  priceMonthly     Decimal          @db.Decimal(10, 2)
-  currency         String           @default("JPY") @db.VarChar(3)
-  isActive         Boolean          @default(true)
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  trainerProfile   TrainerProfile   @relation(fields: [trainerProfileId], references: [id], onDelete: Cascade)
+  priceMonthly     Decimal                @db.Decimal(10, 2)
+  currency         String                 @default("JPY") @db.VarChar(3)
+  isActive         Boolean                @default(true)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  trainerProfile   TrainerProfile         @relation(fields: [trainerProfileId], references: [id], onDelete: Cascade)
   purchases        SubscriptionPurchase[]
   contentAccesses  ContentAccess[]
 
@@ -167,25 +180,25 @@ model SubscriptionPlan {
 }
 
 model ContentPost {
-  id               String        @id @default(cuid())
-  authorId         String
-  contentType      PremiumContentType @default(TEXT)
-  titleEn          String
-  titleJa          String?
-  summaryEn        String?
-  summaryJa        String?
-  bodyEn           String
-  bodyJa           String?
-  thumbnailUrl     String?       @db.VarChar(2048)
-  youtubeUrl       String?       @db.VarChar(2048)
-  templateKey      String?       @db.VarChar(64)
-  isPremium        Boolean       @default(false)
-  status           ContentStatus @default(DRAFT)
-  publishedAt      DateTime?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
-  author           User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  accesses         ContentAccess[]
+  id           String             @id @default(cuid())
+  authorId     String
+  contentType  PremiumContentType @default(TEXT)
+  titleEn      String
+  titleJa      String?
+  summaryEn    String?
+  summaryJa    String?
+  bodyEn       String
+  bodyJa       String?
+  thumbnailUrl String?            @db.VarChar(2048)
+  youtubeUrl   String?            @db.VarChar(2048)
+  templateKey  String?            @db.VarChar(64)
+  isPremium    Boolean            @default(false)
+  status       ContentStatus      @default(DRAFT)
+  publishedAt  DateTime?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  author       User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  accesses     ContentAccess[]
 
   @@index([authorId, status])
   @@index([publishedAt])
@@ -226,29 +239,56 @@ model SessionOffering {
 }
 
 model Booking {
-  id                String          @id @default(cuid())
-  sessionOfferingId String
-  clientId          String
-  trainerId         String
-  status            BookingStatus   @default(PENDING)
-  startsAt          DateTime
-  endsAt            DateTime
-  notes             String?
-  stripeCheckoutSessionId String?      @unique
-  stripePaymentIntentId   String?      @unique
-  amountPaid              Decimal?     @db.Decimal(10, 2)
-  currency                String       @default("JPY") @db.VarChar(3)
+  id                      String            @id @default(cuid())
+  sessionOfferingId       String
+  clientId                String
+  trainerId               String
+  status                  BookingStatus     @default(PENDING)
+  startsAt                DateTime
+  endsAt                  DateTime
+  notes                   String?
+  stripeCheckoutSessionId String?           @unique
+  stripePaymentIntentId   String?           @unique
+  amountPaid              Decimal?          @db.Decimal(10, 2)
+  currency                String            @default("JPY") @db.VarChar(3)
   canceledAt              DateTime?
   cancellationReason      String?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  sessionOffering   SessionOffering @relation(fields: [sessionOfferingId], references: [id], onDelete: Restrict)
-  client            User            @relation("ClientBookings", fields: [clientId], references: [id], onDelete: Cascade)
-  trainer           User            @relation("TrainerBookings", fields: [trainerId], references: [id], onDelete: Cascade)
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+  sessionOffering         SessionOffering   @relation(fields: [sessionOfferingId], references: [id], onDelete: Restrict)
+  client                  User              @relation("ClientBookings", fields: [clientId], references: [id], onDelete: Cascade)
+  trainer                 User              @relation("TrainerBookings", fields: [trainerId], references: [id], onDelete: Cascade)
+  notificationLogs        NotificationLog[]
 
   @@index([clientId, startsAt])
   @@index([trainerId, startsAt])
   @@index([status])
+}
+
+model LineConnection {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  lineUserId          String   @unique
+  notificationEnabled Boolean  @default(true)
+  friendStatus        Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model NotificationLog {
+  id        String              @id @default(cuid())
+  userId    String
+  bookingId String?
+  type      NotificationType
+  channel   NotificationChannel
+  sentAt    DateTime            @default(now())
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  booking   Booking?            @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, bookingId, type, channel])
+  @@index([bookingId])
+  @@index([type, sentAt])
 }
 
 model TrainerAvailability {
@@ -267,20 +307,20 @@ model TrainerAvailability {
 }
 
 model SubscriptionPurchase {
-  id                   String           @id @default(cuid())
-  userId               String
-  subscriptionPlanId   String
-  status               PurchaseStatus   @default(ACTIVE)
-  stripeCheckoutSessionId String?       @unique
-  stripeCustomerId     String?
-  stripeSubscriptionId String?          @unique
-  startedAt            DateTime         @default(now())
-  expiresAt            DateTime?
-  canceledAt           DateTime?
-  createdAt            DateTime         @default(now())
-  updatedAt            DateTime         @updatedAt
-  user                 User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  subscriptionPlan     SubscriptionPlan @relation(fields: [subscriptionPlanId], references: [id], onDelete: Restrict)
+  id                      String           @id @default(cuid())
+  userId                  String
+  subscriptionPlanId      String
+  status                  PurchaseStatus   @default(ACTIVE)
+  stripeCheckoutSessionId String?          @unique
+  stripeCustomerId        String?
+  stripeSubscriptionId    String?          @unique
+  startedAt               DateTime         @default(now())
+  expiresAt               DateTime?
+  canceledAt              DateTime?
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
+  user                    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscriptionPlan        SubscriptionPlan @relation(fields: [subscriptionPlanId], references: [id], onDelete: Restrict)
 
   @@index([userId, status])
   @@index([subscriptionPlanId])
@@ -303,22 +343,22 @@ model Review {
   reviewer         User           @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
   targetUser       User           @relation("ReviewTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
 
+  @@unique([trainerProfileId, reviewerId])
   @@index([trainerProfileId, createdAt])
   @@index([targetUserId])
-  @@unique([trainerProfileId, reviewerId])
 }
 
 model StripeAccount {
-  id                    String   @id @default(cuid())
-  userId                String   @unique
-  stripeAccountId       String   @unique
-  onboardingStatus      StripeOnboardingStatus @default(NOT_STARTED)
-  chargesEnabled        Boolean  @default(false)
-  payoutsEnabled        Boolean  @default(false)
-  detailsSubmitted      Boolean  @default(false)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id               String                 @id @default(cuid())
+  userId           String                 @unique
+  stripeAccountId  String                 @unique
+  onboardingStatus StripeOnboardingStatus @default(NOT_STARTED)
+  chargesEnabled   Boolean                @default(false)
+  payoutsEnabled   Boolean                @default(false)
+  detailsSubmitted Boolean                @default(false)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  user             User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([stripeAccountId])
 }

@@ -34,7 +34,7 @@ export default clerkMiddleware(async (auth, req) => {
     (locale) => pathname === `/${locale}` || pathname.startsWith(`/${locale}/`),
   );
 
-  if (!isLocalizedPath && !pathname.startsWith("/_next") && !pathname.includes(".")) {
+  if (!isLocalizedPath && !pathname.startsWith("/_next") && !pathname.startsWith("/api/") && !pathname.includes(".")) {
     const url = req.nextUrl.clone();
     url.pathname = `/${defaultLocale}${pathname}`;
     return NextResponse.redirect(url);
