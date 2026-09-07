@@ -1,490 +1,127 @@
-import { ArrowRight, CheckCircle2, Coins, Globe2, Handshake, ShieldCheck, Users } from "lucide-react";
+import {
+  ArrowRight,
+  BadgeCheck,
+  CalendarDays,
+  CreditCard,
+  MapPin,
+  Search,
+  ShieldCheck,
+  Star,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 
-import { LandingSection } from "@/components/marketing/landing-section";
-import { ValueCard } from "@/components/marketing/value-card";
-import { buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Locale } from "@/lib/constants/locales";
-import { cn } from "@/lib/utils";
 
+const trainers = [
+  { name: "山田 大輔", sport: "ボクシング", area: "東京都・渋谷区 / オンライン", price: "¥5,000", rating: "4.9", reviews: "124件", tone: "from-slate-800 via-slate-600 to-blue-950" },
+  { name: "Maria Santos", sport: "ブラジリアン柔術", area: "東京都・世田谷区 / オンライン", price: "¥6,000", rating: "4.8", reviews: "89件", tone: "from-stone-200 via-slate-100 to-blue-200" },
+  { name: "佐藤 健一", sport: "ストレングストレーニング", area: "東京都・新宿区 / オンライン", price: "¥4,500", rating: "4.8", reviews: "56件", tone: "from-slate-600 via-slate-400 to-slate-900" },
+];
 
-interface LandingPageCopy {
-  hero: {
-    badge: string;
-    title: string;
-    description: string;
-    primaryCta: string;
-    secondaryCta: string;
-  };
-  clients: {
-    title: string;
-    description: string;
-    items: Array<{ title: string; description: string }>;
-  };
-  trainers: {
-    title: string;
-    description: string;
-    items: Array<{ title: string; description: string }>;
-  };
-  categories: {
-    title: string;
-    description: string;
-    items: string[];
-  };
-  howItWorks: {
-    title: string;
-    description: string;
-    steps: Array<{ title: string; description: string }>;
-  };
-  monetization: {
-    title: string;
-    description: string;
-    items: string[];
-  };
-  bilingual: {
-    title: string;
-    description: string;
-    points: string[];
-  };
-  cta: {
-    title: string;
-    description: string;
-    primary: string;
-    secondary: string;
-  };
-  faq: {
-    title: string;
-    items: Array<{ question: string; answer: string }>;
-  };
-  footer: {
-    headline: string;
-    tagline: string;
-    links: string[];
-    copyright: string;
-  };
-}
-
-const landingCopy = {
-  en: {
-    hero: {
-      badge: "Built for modern martial arts businesses",
-      title: "Grow your martial arts marketplace with trust and speed.",
-      description:
-        "Fight Hub helps clients find the right coach while helping trainers monetize sessions, memberships, and programs in one bilingual platform.",
-      primaryCta: "Start as a trainer",
-      secondaryCta: "Book your first class",
-    },
-    clients: {
-      title: "Value proposition for clients",
-      description: "Discover high-quality trainers fast, compare options clearly, and book with confidence.",
-      items: [
-        {
-          title: "Verified trainer profiles",
-          description: "Ratings, credentials, and specialties are shown upfront so clients can make smarter decisions.",
-        },
-        {
-          title: "Simple booking flow",
-          description: "From search to payment, clients can reserve classes in minutes on mobile or desktop.",
-        },
-        {
-          title: "Flexible lesson formats",
-          description: "Offerings include private sessions, group classes, and online coaching to fit any schedule.",
-        },
-      ],
-    },
-    trainers: {
-      title: "Value proposition for trainers",
-      description: "Launch quickly, reach qualified students, and operate with less admin work.",
-      items: [
-        {
-          title: "Faster lead generation",
-          description: "A conversion-focused profile helps serious clients find and contact you faster.",
-        },
-        {
-          title: "Automated scheduling",
-          description: "Availability, confirmations, and reminders keep your calendar organized.",
-        },
-        {
-          title: "Built-in trust signals",
-          description: "Client reviews and profile verification increase confidence and conversions.",
-        },
-      ],
-    },
-    categories: {
-      title: "Martial arts categories",
-      description: "Organized discovery for every training style.",
-      items: ["Boxing", "Kickboxing", "Muay Thai", "Brazilian Jiu-Jitsu", "MMA", "Judo", "Karate", "Wrestling"],
-    },
-    howItWorks: {
-      title: "How it works",
-      description: "A simple journey from discovery to recurring training.",
-      steps: [
-        {
-          title: "1. Explore",
-          description: "Clients browse by style, level, location, and language.",
-        },
-        {
-          title: "2. Match",
-          description: "They compare trainer profiles, pricing, and available times.",
-        },
-        {
-          title: "3. Train",
-          description: "Book instantly, pay securely, and continue with subscriptions.",
-        },
-      ],
-    },
-    monetization: {
-      title: "Monetization for trainers",
-      description: "Multiple revenue streams in one platform.",
-      items: [
-        "Sell one-on-one sessions or drop-in classes",
-        "Create monthly memberships with recurring billing",
-        "Launch premium programs for competition prep",
-        "Upsell digital plans and video feedback",
-      ],
-    },
-    bilingual: {
-      title: "Bilingual / international support",
-      description:
-        "Fight Hub supports Japanese and English experiences so you can serve local and global communities without duplicating operations.",
-      points: [
-        "Localized user journey in English and Japanese",
-        "International-friendly onboarding and communication",
-        "Consistent branding across both languages",
-      ],
-    },
-    cta: {
-      title: "Ready to grow your martial arts business?",
-      description: "Join Fight Hub and start turning profile views into paid students.",
-      primary: "Create trainer account",
-      secondary: "Talk to sales",
-    },
-    faq: {
-      title: "FAQ",
-      items: [
-        {
-          question: "Can I offer both private and group classes?",
-          answer: "Yes. Trainers can publish multiple lesson formats and set independent pricing for each.",
-        },
-        {
-          question: "Does Fight Hub support Japanese and English users?",
-          answer: "Yes. The platform is designed for bilingual experiences and international expansion.",
-        },
-        {
-          question: "How do trainers get paid?",
-          answer: "Payments are handled securely, with recurring options for memberships and program plans.",
-        },
-      ],
-    },
-    footer: {
-      headline: "Fight Hub",
-      tagline: "Modern marketplace infrastructure for martial arts.",
-      links: ["Privacy", "Terms", "Contact"],
-      copyright: "© 2026 Fight Hub. All rights reserved.",
-    },
-  },
+const copy = {
   ja: {
-    hero: {
-      badge: "武道ビジネスのためのモダンプラットフォーム",
-      title: "信頼とスピードで、あなたの格闘技マーケットプレイスを成長させる。",
-      description:
-        "Fight Hub は、クライアントが最適なコーチを見つけやすくし、トレーナーはセッション・会員課金・プログラムを1つのバイリンガル基盤で収益化できます。",
-      primaryCta: "トレーナーとして始める",
-      secondaryCta: "最初のレッスンを予約",
-    },
-    clients: {
-      title: "クライアント向けの価値",
-      description: "質の高いトレーナーを素早く比較し、安心して予約できます。",
-      items: [
-        {
-          title: "検証済みトレーナープロフィール",
-          description: "評価・実績・専門分野を事前に確認でき、納得して選べます。",
-        },
-        {
-          title: "シンプルな予約体験",
-          description: "検索から決済まで、モバイルでもPCでも短時間で完了します。",
-        },
-        {
-          title: "柔軟なレッスン形式",
-          description: "パーソナル、グループ、オンライン指導までニーズに合わせて選択可能です。",
-        },
-      ],
-    },
-    trainers: {
-      title: "トレーナー向けの価値",
-      description: "短期間で立ち上げ、質の高い生徒に届き、運用負荷を下げられます。",
-      items: [
-        {
-          title: "集客スピードを向上",
-          description: "コンバージョン重視のプロフィールで本気度の高い顧客に届きます。",
-        },
-        {
-          title: "スケジュールを自動化",
-          description: "空き枠管理、予約確定、リマインドを自動化して効率化します。",
-        },
-        {
-          title: "信頼を高める仕組み",
-          description: "レビューと認証情報により、問い合わせと成約を後押しします。",
-        },
-      ],
-    },
-    categories: {
-      title: "対応する格闘技カテゴリ",
-      description: "あらゆるスタイルを探しやすく分類。",
-      items: ["ボクシング", "キックボクシング", "ムエタイ", "ブラジリアン柔術", "MMA", "柔道", "空手", "レスリング"],
-    },
-    howItWorks: {
-      title: "利用の流れ",
-      description: "発見から継続トレーニングまで、わかりやすい3ステップ。",
-      steps: [
-        {
-          title: "1. 探す",
-          description: "種目、レベル、エリア、言語でトレーナーを絞り込み。",
-        },
-        {
-          title: "2. 比較する",
-          description: "プロフィール、料金、空き時間を見比べて最適な相手を選択。",
-        },
-        {
-          title: "3. 継続する",
-          description: "予約・決済を簡単に行い、サブスクで継続的に受講。",
-        },
-      ],
-    },
-    monetization: {
-      title: "トレーナーの収益化",
-      description: "ひとつのプラットフォームで複数の売上導線を構築。",
-      items: [
-        "パーソナル/単発クラスを販売",
-        "月額会員プランで継続課金",
-        "試合向けプレミアムプログラムを提供",
-        "デジタル指導プランや動画フィードバックを追加販売",
-      ],
-    },
-    bilingual: {
-      title: "バイリンガル / 国際対応",
-      description:
-        "Fight Hub は日本語と英語の両方に対応し、運用を分けることなく国内外のコミュニティへ展開できます。",
-      points: [
-        "英語・日本語で統一されたUX",
-        "国際ユーザーを想定したオンボーディング",
-        "多言語でも一貫したブランド表現",
-      ],
-    },
-    cta: {
-      title: "格闘技ビジネスを次の成長段階へ。",
-      description: "Fight Hub で、プロフィール閲覧を有料受講につなげましょう。",
-      primary: "トレーナーアカウントを作成",
-      secondary: "営業に相談する",
-    },
-    faq: {
-      title: "よくある質問",
-      items: [
-        {
-          question: "パーソナルとグループの両方を提供できますか？",
-          answer: "はい。レッスン形式ごとに掲載・料金設定が可能です。",
-        },
-        {
-          question: "日本語と英語のユーザーに対応できますか？",
-          answer: "はい。プラットフォーム全体がバイリンガル対応を前提に設計されています。",
-        },
-        {
-          question: "トレーナーへの支払いはどうなりますか？",
-          answer: "安全な決済基盤で、月額課金やプログラム販売にも対応できます。",
-        },
-      ],
-    },
-    footer: {
-      headline: "Fight Hub",
-      tagline: "格闘技のためのモダンなマーケットプレイス基盤。",
-      links: ["プライバシー", "利用規約", "お問い合わせ"],
-      copyright: "© 2026 Fight Hub. All rights reserved.",
-    },
+    title: <>あなたに合うコーチが、<br />きっと見つかる。</>,
+    intro: "格闘技・フィットネスの信頼できるトレーナーを比較して、日本語でも英語でも、かんたんに予約できます。",
+    recommended: "おすすめのトレーナー",
+    recommendedText: "実績のあるトレーナーから、あなたにぴったりのコーチを見つけましょう。",
+    all: "すべてのトレーナーを見る",
   },
-} satisfies Record<Locale, LandingPageCopy>;
+  en: {
+    title: <>The right coach for you<br />is closer than you think.</>,
+    intro: "Compare trusted martial arts and fitness trainers, then book easily in Japanese or English.",
+    recommended: "Recommended trainers",
+    recommendedText: "Meet experienced coaches ready to help you reach your goals.",
+    all: "View all trainers",
+  },
+} satisfies Record<Locale, object>;
 
-export default async function LocalizedHome({
-  params,
-}: {
-  params: Promise<{ locale: Locale }>;
-}) {
+export default async function LocalizedHome({ params }: { params: Promise<{ locale: Locale }> }) {
   const { locale } = await params;
-  const copy = landingCopy[locale];
+  const text = copy[locale] as typeof copy.ja;
 
   return (
-    <div className="space-y-16 pb-8 md:space-y-24">
-      <section className="rounded-3xl border border-blue-100 bg-gradient-to-b from-blue-50 to-white px-6 py-12 shadow-sm md:px-10 md:py-16">
-        <p className="inline-flex items-center rounded-full border border-blue-200 bg-white px-3 py-1 text-xs font-medium text-blue-700">
-          {copy.hero.badge}
-        </p>
-        <div className="mt-5 max-w-3xl space-y-4">
-          <h1 className="text-3xl font-semibold tracking-tight text-slate-900 md:text-5xl">{copy.hero.title}</h1>
-          <p className="text-base leading-relaxed text-slate-600 md:text-lg">{copy.hero.description}</p>
+    <div className="landing-page -mx-4 -mt-10 text-[#09213f] sm:-mx-6 lg:-mx-8">
+      <section className="relative overflow-hidden bg-[#faf8f4] px-5 pb-12 pt-12 sm:px-8 lg:px-12 lg:pb-0">
+        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[.86fr_1.14fr] lg:items-center">
+          <div className="relative z-10 pb-8 lg:pb-20">
+            <h1 className="text-[clamp(2.4rem,5vw,4.45rem)] font-extrabold leading-[1.25] tracking-[-.055em]">{text.title}</h1>
+            <p className="mt-5 max-w-xl text-base font-medium leading-8 text-slate-600 sm:text-lg">{text.intro}</p>
+          </div>
+          <div className="grid h-[470px] grid-cols-2 gap-3 lg:h-[650px]">
+            <SportPanel label="BOXING" sub="ボクシング" className="mt-0 rounded-[60px_20px_55px_24px] bg-[linear-gradient(145deg,#172e4d,#50789a_48%,#0b1522)]" />
+            <SportPanel label="BRAZILIAN\nJIU-JITSU" sub="ブラジリアン柔術" className="mt-5 rounded-[55px_24px_60px_25px] bg-[linear-gradient(145deg,#d6d0c8,#f2e7d8_48%,#7991aa)]" />
+            <SportPanel label="STRENGTH\nTRAINING" sub="ストレングストレーニング" className="-mt-10 rounded-[24px_58px_25px_60px] bg-[linear-gradient(145deg,#9aa8b1,#172432_55%,#02070b)]" />
+            <SportPanel label="YOGA &\nMOBILITY" sub="ヨガ・モビリティ" className="-mt-4 rounded-[55px_24px_60px_24px] bg-[linear-gradient(145deg,#eee6dd,#aab9a1_50%,#536b65)]" />
+          </div>
         </div>
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-          <Link href={`/${locale}/sign-up`} className={cn(buttonVariants({ size: "lg" }), "bg-blue-600 text-white hover:bg-blue-700")}>
-            {copy.hero.primaryCta}
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-          <Link
-            href={`/${locale}/sign-in`}
-            className={buttonVariants({ variant: "outline", size: "lg" })}
-          >
-            {copy.hero.secondaryCta}
-          </Link>
+
+        <div className="relative z-20 mx-auto -mt-2 max-w-7xl rounded-xl border border-slate-200 bg-white p-4 shadow-[0_14px_40px_rgba(17,40,70,.10)] lg:-mt-20">
+          <div className="grid gap-3 md:grid-cols-[1fr_1.2fr_1fr_1.25fr]">
+            <SearchField icon={<Users />} label="種目" value="すべての種目" />
+            <SearchField icon={<MapPin />} label="エリア / オンライン" value="東京、大阪、オンラインなど" />
+            <SearchField icon={<CalendarDays />} label="希望日時" value="日付を選択" />
+            <Link href={`/${locale}/trainers`} className="flex min-h-16 items-center justify-center gap-3 rounded-lg bg-[#0756d8] px-5 text-base font-bold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700">
+              <Search className="size-6" /> トレーナーを検索
+            </Link>
+          </div>
+        </div>
+
+        <div className="mx-auto flex max-w-7xl flex-wrap gap-x-8 gap-y-3 py-6 text-sm font-medium text-slate-600">
+          <span className="flex items-center gap-2"><ShieldCheck className="size-5 fill-blue-600 text-white" />本人確認済みのトレーナー</span>
+          <span className="flex items-center gap-2"><Star className="size-5 fill-blue-700 text-blue-700" />リアルな口コミ</span>
+          <span className="flex items-center gap-2"><CreditCard className="size-5 text-blue-700" />Stripeで安全決済</span>
         </div>
       </section>
 
-      <LandingSection id="clients" title={copy.clients.title} description={copy.clients.description}>
-        <div className="grid gap-4 md:grid-cols-3">
-          {copy.clients.items.map((item) => (
-            <ValueCard
-              key={item.title}
-              title={item.title}
-              description={item.description}
-              icon={<Users className="h-5 w-5" />}
-            />
-          ))}
-        </div>
-      </LandingSection>
-
-      <LandingSection id="trainers" title={copy.trainers.title} description={copy.trainers.description}>
-        <div className="grid gap-4 md:grid-cols-3">
-          {copy.trainers.items.map((item) => (
-            <ValueCard
-              key={item.title}
-              title={item.title}
-              description={item.description}
-              icon={<ShieldCheck className="h-5 w-5" />}
-            />
-          ))}
-        </div>
-      </LandingSection>
-
-      <LandingSection id="categories" title={copy.categories.title} description={copy.categories.description}>
-        <div className="flex flex-wrap gap-3">
-          {copy.categories.items.map((category) => (
-            <span
-              key={category}
-              className="rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700"
-            >
-              {category}
-            </span>
-          ))}
-        </div>
-      </LandingSection>
-
-      <LandingSection id="how-it-works" title={copy.howItWorks.title} description={copy.howItWorks.description}>
-        <div className="grid gap-4 md:grid-cols-3">
-          {copy.howItWorks.steps.map((step) => (
-            <Card key={step.title} className="border-slate-200 bg-white">
-              <CardHeader>
-                <CardTitle className="text-lg text-slate-900">{step.title}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-slate-600">{step.description}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </LandingSection>
-
-      <LandingSection id="monetization" title={copy.monetization.title} description={copy.monetization.description}>
-        <Card className="border-blue-100 bg-blue-50">
-          <CardContent className="pt-6">
-            <ul className="space-y-3">
-              {copy.monetization.items.map((item) => (
-                <li key={item} className="flex items-start gap-3 text-sm text-slate-700">
-                  <Coins className="mt-0.5 h-4 w-4 text-blue-600" />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      </LandingSection>
-
-      <LandingSection id="bilingual" title={copy.bilingual.title} description={copy.bilingual.description}>
-        <div className="grid gap-4 md:grid-cols-[1.1fr_1fr]">
-          <Card className="border-slate-200 bg-white">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg text-slate-900">
-                <Globe2 className="h-5 w-5 text-blue-600" />
-                Global ready
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-3">
-                {copy.bilingual.points.map((point) => (
-                  <li key={point} className="flex items-start gap-2 text-sm text-slate-600">
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 text-blue-600" />
-                    {point}
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-          <Card className="border-blue-100 bg-blue-600 text-white">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Handshake className="h-5 w-5" />
-                {locale === "ja" ? "海外顧客との接点を拡大" : "Expand your cross-border reach"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-blue-100">
-                {locale === "ja"
-                  ? "言語切替と一貫した体験設計で、国内外の会員を同時に獲得しやすくなります。"
-                  : "Language switching and consistent UX make it easier to attract both local and international members."}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </LandingSection>
-
-      <section className="rounded-3xl bg-slate-900 px-6 py-12 text-white md:px-10">
-        <h2 className="text-2xl font-semibold md:text-3xl">{copy.cta.title}</h2>
-        <p className="mt-3 max-w-3xl text-slate-300">{copy.cta.description}</p>
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-          <Link href={`/${locale}/sign-up`} className={cn(buttonVariants({ size: "lg" }), "bg-blue-500 text-white hover:bg-blue-400")}>
-            {copy.cta.primary}
-          </Link>
-          <Link href={`/${locale}/sign-in`} className={cn(buttonVariants({ variant: "outline", size: "lg" }), "border-slate-500 text-white hover:bg-slate-800")}>
-            {copy.cta.secondary}
-          </Link>
+      <section className="bg-white px-5 py-14 sm:px-8 lg:px-12">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-8 flex items-end justify-between gap-6">
+            <div><h2 className="text-3xl font-extrabold tracking-tight">{text.recommended}</h2><p className="mt-2 text-slate-600">{text.recommendedText}</p></div>
+            <Link href={`/${locale}/trainers`} className="hidden items-center gap-2 font-bold text-blue-700 sm:flex">{text.all}<ArrowRight className="size-4" /></Link>
+          </div>
+          <div className="grid gap-5 lg:grid-cols-3">
+            {trainers.map((trainer, index) => <TrainerCard key={trainer.name} trainer={trainer} index={index} locale={locale} />)}
+          </div>
         </div>
       </section>
 
-      <LandingSection id="faq" title={copy.faq.title}>
-        <div className="grid gap-4 md:grid-cols-3">
-          {copy.faq.items.map((item) => (
-            <Card key={item.question} className="border-slate-200 bg-white">
-              <CardHeader>
-                <CardTitle className="text-base text-slate-900">{item.question}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-slate-600">{item.answer}</p>
-              </CardContent>
-            </Card>
-          ))}
+      <section id="how-it-works" className="scroll-mt-20 bg-[#eef6ff] px-5 py-14 sm:px-8 lg:px-12">
+        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1.1fr_3fr] lg:items-center">
+          <div><h2 className="text-3xl font-extrabold leading-snug">かんたん3ステップで、<br />理想のコーチと出会える</h2><p className="mt-3 text-sm text-slate-600">はじめての方でも安心。シンプルな流れで予約できます。</p></div>
+          <div className="grid gap-8 sm:grid-cols-3">
+            <Step icon={<Search />} title="1. 探す" body="種目・エリア・日時でトレーナーを検索" />
+            <Step icon={<Users />} title="2. 比較する" body="プロフィール・口コミ・料金・空き状況をチェック" />
+            <Step icon={<CalendarDays />} title="3. 予約する" body="希望の日時で予約してレッスンを受ける" />
+          </div>
         </div>
-      </LandingSection>
+      </section>
 
-      <footer className="border-t border-slate-200 pt-8 text-sm text-slate-500">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="font-semibold text-slate-900">{copy.footer.headline}</p>
-            <p>{copy.footer.tagline}</p>
-          </div>
-          <div className="flex items-center gap-4">
-            {copy.footer.links.map((link) => (
-              <span key={link}>{link}</span>
-            ))}
-          </div>
+      <section className="grid bg-white lg:grid-cols-2">
+        <div className="flex items-center gap-7 px-6 py-14 sm:px-12 lg:px-[max(3rem,calc((100vw-80rem)/2))] lg:pr-12">
+          <div className="grid size-40 shrink-0 place-items-center rounded-[32px] bg-gradient-to-br from-blue-100 via-amber-50 to-blue-300 text-6xl">☺</div>
+          <div><blockquote className="text-2xl font-extrabold leading-snug">“はじめてでも安心して<br />予約できました”</blockquote><p className="mt-4 leading-7 text-slate-600">口コミやプロフィールがわかりやすく、安心して予約できました。トレーナーさんも親切で、楽しく続けられています。</p><p className="mt-4 text-sm font-bold">miho さん（20代・東京都）</p></div>
         </div>
-        <p className="mt-6">{copy.footer.copyright}</p>
-      </footer>
+        <div className="flex min-h-80 items-center bg-[linear-gradient(145deg,#f5dfcc,#bdd7ec_55%,#5a8b8b)] px-12 py-16">
+          <div><p className="text-2xl leading-relaxed tracking-[.18em]">動くことは、<br />自分を好きになること。</p><p className="mt-5 text-xs tracking-[.18em] text-slate-500">A STRONGER, KINDER YOU</p></div>
+        </div>
+      </section>
     </div>
   );
+}
+
+function SportPanel({ label, sub, className }: { label: string; sub: string; className: string }) {
+  return <div className={`relative overflow-hidden ${className}`}><div className="absolute inset-0 opacity-30 [background:radial-gradient(circle_at_55%_28%,white_0,transparent_18%),radial-gradient(ellipse_at_55%_75%,#d6e4ef_0,transparent_36%)]" /><div className="absolute bottom-8 left-7 whitespace-pre-line text-xl font-black leading-5 text-white drop-shadow">{label}<span className="mt-2 block text-xs font-bold">{sub}</span></div></div>;
+}
+
+function SearchField({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return <div><p className="mb-1 text-xs font-bold">{label}</p><div className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 px-4 text-sm text-slate-400">{<span className="[&>svg]:size-5 [&>svg]:text-[#09213f]">{icon}</span>}{value}</div></div>;
+}
+
+function TrainerCard({ trainer, index, locale }: { trainer: (typeof trainers)[number]; index: number; locale: Locale }) {
+  return <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex gap-4"><div className={`grid h-40 w-32 shrink-0 place-items-center rounded-lg bg-gradient-to-br ${trainer.tone} text-5xl text-white/80`}>{index === 1 ? "✦" : "●"}</div><div className="min-w-0 py-1"><h3 className="flex items-center gap-1 text-lg font-bold">{trainer.name}<BadgeCheck className="size-5 fill-blue-600 text-white" /></h3><p className="mt-1 text-sm text-slate-600">{trainer.sport}</p><p className="mt-5 flex gap-1 text-xs text-slate-600"><MapPin className="size-4 shrink-0" />{trainer.area}</p><p className="mt-2 text-sm"><Star className="mr-1 inline size-5 fill-amber-400 text-amber-400" /><b>{trainer.rating}</b> <span className="text-slate-400">({trainer.reviews})</span></p></div></div><p className="mt-4 text-center text-lg font-extrabold">{trainer.price}〜<span className="text-sm font-normal text-slate-500"> / 60分</span></p><div className="mt-3 flex justify-center gap-2 text-xs font-bold"><span className="rounded bg-slate-100 px-3 py-2">本日 18:00</span><span className="rounded bg-slate-100 px-3 py-2">4/26（土）</span><span className="rounded bg-slate-100 px-3 py-2">4/27（日）</span></div><Link href={`/${locale}/trainers`} className="mt-4 block rounded-md border border-blue-600 py-2 text-center text-sm font-bold text-blue-700 hover:bg-blue-50">プロフィールを見る</Link></article>;
+}
+
+function Step({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
+  return <div className="text-center"><div className="mx-auto mb-3 grid size-14 place-items-center text-blue-700 [&>svg]:size-10">{icon}</div><h3 className="text-xl font-extrabold">{title}</h3><p className="mx-auto mt-3 max-w-48 text-sm leading-6 text-slate-600">{body}</p></div>;
 }
