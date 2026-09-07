@@ -68,6 +68,7 @@ STRIPE_CONNECT_WEBHOOK_SECRET="whsec_..."
 ```bash
 npm install
 npm run prisma:migrate
+npm run prisma:seed
 npm run dev
 ```
 
@@ -87,6 +88,7 @@ Open [http://localhost:3000](http://localhost:3000). The root route redirects to
 | `npm run test:watch` | Run Vitest in watch mode. |
 | `npm run prisma:generate` | Regenerate Prisma Client. |
 | `npm run prisma:migrate` | Create/apply a development migration. |
+| `npm run prisma:seed` | Create or update the published dummy trainer. |
 | `npm run prisma:studio` | Open Prisma Studio. |
 
 ## Main routes
