@@ -16,6 +16,9 @@ type TrainerDirectoryItem = {
 export type TrainerDetail = TrainerDirectoryItem & {
   trainerUserId: string;
   headline: string;
+  longBio: string;
+  certifications: string[];
+  coachingFormats: string[];
   sessionOfferings: Array<{ id: string; title: string; description: string; durationMinutes: number; price: string; format: string }>;
   subscriptionPlans: Array<{ id: string; name: string; description: string; priceMonthly: string }>;
   reviews: Array<{ id: string; reviewerId: string; rating: number; title: string; comment: string; reviewerName: string; createdAt: string }>;
@@ -70,6 +73,20 @@ function buildLanguages(locale: string | null | undefined): string[] {
   return ["English"];
 }
 
+function stringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).map((item) => item.trim());
+}
+
+function socialLinks(value: unknown): Array<{ label: string; href: string }> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+
+  const labels: Record<string, string> = { website: "Website", instagram: "Instagram", x: "X", youtube: "YouTube" };
+  return Object.entries(value)
+    .filter((entry): entry is [string, string] => typeof entry[1] === "string" && /^https?:\/\//i.test(entry[1]))
+    .map(([key, href]) => ({ label: labels[key] ?? key, href }));
+}
+
 export async function getTrainerDirectory(locale: Locale): Promise<TrainerDirectoryItem[]> {
   const trainers = (await prisma.trainerProfile.findMany({
     where: { isPublished: true },
@@ -82,6 +99,9 @@ export async function getTrainerDirectory(locale: Locale): Promise<TrainerDirect
   })) as Array<{
     id: string;
     experienceYears: number | null;
+    profileImageUrl: string | null;
+    languages: unknown;
+    achievements: unknown;
     user: {
       email: string | null;
       profile: { displayName: string | null; displayNameJa: string | null; bio: string | null; bioJa: string | null; locale: string | null } | null;
@@ -97,13 +117,10 @@ export async function getTrainerDirectory(locale: Locale): Promise<TrainerDirect
       id: trainer.id,
       name,
       bio: localized(trainer.user.profile?.bio, trainer.user.profile?.bioJa, locale),
-      image: avatarDataUri(name),
+      image: trainer.profileImageUrl || avatarDataUri(name),
       categories: trainer.categories.map((category) => localized(category.labelEn, category.labelJa, locale) || category.key),
-      languages: buildLanguages(trainer.user.profile?.locale),
-      achievements: [
-        trainer.experienceYears ? `${trainer.experienceYears}+ years experience` : "Newly onboarded trainer",
-        `${trainer.reviews.length} verified reviews`,
-      ],
+      languages: stringList(trainer.languages).length ? stringList(trainer.languages) : buildLanguages(trainer.user.profile?.locale),
+      achievements: stringList(trainer.achievements),
       rating: ratings.length ? ratings.reduce((sum, value) => sum + value, 0) / ratings.length : null,
       reviewCount: ratings.length,
     };
@@ -150,15 +167,15 @@ export async function getTrainerDetail(locale: Locale, trainerId: string): Promi
     id: trainer.id,
     trainerUserId: trainer.userId,
     name: trainerName,
-    bio: localized(trainer.user.profile?.bio, trainer.user.profile?.bioJa, locale),
-    image: avatarDataUri(trainerName),
+    bio: localized(trainer.shortBio, trainer.shortBioJa, locale) || localized(trainer.user.profile?.bio, trainer.user.profile?.bioJa, locale),
+    image: trainer.profileImageUrl || avatarDataUri(trainerName),
     headline: localized(trainer.headline, trainer.headlineJa, locale),
+    longBio: localized(trainer.longBio, trainer.longBioJa, locale),
     categories: trainer.categories.map((category) => localized(category.labelEn, category.labelJa, locale) || category.key),
-    languages: buildLanguages(trainer.user.profile?.locale),
-    achievements: [
-      trainer.experienceYears ? `${trainer.experienceYears}+ years coaching` : "Growing coaching portfolio",
-      trainer.offerings.length ? `${trainer.offerings.length} active session offerings` : "No active sessions yet",
-    ],
+    languages: stringList(trainer.languages).length ? stringList(trainer.languages) : buildLanguages(trainer.user.profile?.locale),
+    achievements: stringList(trainer.achievements),
+    certifications: stringList(trainer.certifications),
+    coachingFormats: stringList(trainer.coachingFormats),
     rating: ratings.length ? ratings.reduce((sum, value) => sum + value, 0) / ratings.length : null,
     reviewCount: ratings.length,
     sessionOfferings: (onboardingComplete ? trainer.offerings : []).map((offering) => {
@@ -194,6 +211,6 @@ export async function getTrainerDetail(locale: Locale, trainerId: string): Promi
       reviewerName: localized(review.reviewer.profile?.displayName, review.reviewer.profile?.displayNameJa, locale) || review.reviewer.email || "Member",
       createdAt: review.createdAt.toISOString().slice(0, 10),
     })),
-    externalLinks: [],
+    externalLinks: socialLinks(trainer.socialLinks),
   };
 }
