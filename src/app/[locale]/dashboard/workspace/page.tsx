@@ -1,3 +1,4 @@
+import { statusLabel } from "@/lib/marketplace/labels";
 import Link from "next/link";
 import { requireDbUser } from "@/lib/auth/session";
 import type { Locale } from "@/lib/constants/locales";
@@ -159,7 +160,7 @@ export default async function Workspace({
                 : b.trainer.profile?.displayName}
             </p>
             <p className="text-sm">
-              {b.status}{" "}
+              {statusLabel(b.status, locale)}{" "}
               {b.proposedStartsAt
                 ? ja
                   ? "· 日程変更の提案あり"
@@ -344,7 +345,7 @@ export default async function Workspace({
                 : p.subscriptionPlan.trainerProfile.user.profile?.displayName}
             </p>
             <p>
-              {p.status} ·{" "}
+              {statusLabel(p.status, locale)} ·{" "}
               {Number(p.priceMonthly ?? p.subscriptionPlan.priceMonthly)}{" "}
               {p.currency} / {ja ? "月" : "month"}
             </p>
@@ -502,7 +503,7 @@ export default async function Workspace({
           <article key={t.id} className="space-y-3 rounded-lg border p-4">
             <h3 className="font-bold">{t.subject}</h3>
             <p className="text-xs">
-              {t.id} · {t.status} · {date(t.createdAt)}
+              {t.id} · {statusLabel(t.status, locale)} · {date(t.createdAt)}
             </p>
             <p className="whitespace-pre-wrap">{t.body}</p>
             {t.bookingId && (

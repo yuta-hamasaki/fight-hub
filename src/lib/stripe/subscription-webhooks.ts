@@ -313,7 +313,12 @@ export async function handleRefundUpdated(eventRefund: Stripe.Refund) {
     id = refund.metadata?.bookingId;
   if (!id) return;
   await prisma.booking.updateMany({
-    where: { id, stripePaymentIntentId: objectId(refund.payment_intent) },
+    where: {
+      id,
+      stripePaymentIntentId: objectId(refund.payment_intent),
+      refundStatus: { not: "SUCCEEDED" },
+      OR: [{ stripeRefundId: null }, { stripeRefundId: refund.id }],
+    },
     data: {
       stripeRefundId: refund.id,
       refundStatus:

@@ -1,3 +1,4 @@
+import { statusLabel } from "@/lib/marketplace/labels";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireDbUser } from "@/lib/auth/session";
@@ -168,7 +169,7 @@ export default async function Revenue({
           >
             <span>
               {new Date(p.arrival_date * 1000).toISOString().slice(0, 10)} ·{" "}
-              {p.status}
+              {statusLabel(p.status, locale)}
             </span>
             <b>{money(fromMinor(p.amount, p.currency), p.currency)}</b>
           </div>

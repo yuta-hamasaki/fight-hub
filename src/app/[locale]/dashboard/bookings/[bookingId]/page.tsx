@@ -1,3 +1,4 @@
+import { statusLabel } from "@/lib/marketplace/labels";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireDbUser } from "@/lib/auth/session";
@@ -75,7 +76,7 @@ export default async function BookingPage({
           {date(b.startsAt)} – {date(b.endsAt)} ({timezone})
         </p>
         <p>
-          {ja ? "状態" : "Status"}: {b.status}
+          {ja ? "状態" : "Status"}: {statusLabel(b.status, locale)}
         </p>
         {!trainer && b.status === "PENDING" && b.stripeCheckoutSessionId && (
           <Form
@@ -120,7 +121,8 @@ export default async function BookingPage({
         )}
         {b.refundStatus !== "NONE" && (
           <p>
-            {ja ? "返金状況" : "Refund status"}: {b.refundStatus} ·{" "}
+            {ja ? "返金状況" : "Refund status"}:{" "}
+            {statusLabel(b.refundStatus, locale)} ·{" "}
             {Number(b.refundAmount ?? 0)} {b.currency}
           </p>
         )}
@@ -245,7 +247,11 @@ export default async function BookingPage({
             booking={b.id}
             submit={ja ? "変更を提案" : "Propose change"}
           >
-            <SlotPicker offeringId={b.sessionOfferingId} ja={ja} />
+            <SlotPicker
+              offeringId={b.sessionOfferingId}
+              bookingId={b.id}
+              ja={ja}
+            />
           </Form>
         </Panel>
       )}
@@ -275,7 +281,12 @@ export default async function BookingPage({
           ["FAILED", "PENDING"].includes(b.refundStatus))) && (
         <Panel title={ja ? "キャンセル・返金" : "Cancellation and refund"}>
           <p>
-            {refundable(b, trainer)
+            {(
+              b.status === "CANCELED"
+                ? Number(b.refundAmount) > 0 ||
+                  b.refundStatus === "CREDIT_RETURNED"
+                : refundable(b, trainer)
+            )
               ? ja
                 ? "期限内のキャンセルは全額返金（回数券は回数返却）です。"
                 : "Eligible cancellations receive a full refund or returned credit."

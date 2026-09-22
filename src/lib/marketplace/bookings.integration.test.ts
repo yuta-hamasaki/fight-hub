@@ -8,11 +8,19 @@ import {
   vi,
 } from "vitest";
 import { randomUUID } from "node:crypto";
+const actor = vi.hoisted(() => ({ id: "", role: "CLIENT" }));
+vi.mock("@/lib/auth/session", () => ({ requireDbUser: async () => actor }));
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/navigation", () => ({
+  redirect: (path: string) => {
+    throw new Error(`redirect:${path}`);
+  },
+}));
 const stripe = vi.hoisted(() => ({
   checkout: {
     sessions: { create: vi.fn(), retrieve: vi.fn(), expire: vi.fn() },
   },
-  refunds: { create: vi.fn() },
+  refunds: { create: vi.fn(), retrieve: vi.fn() },
   subscriptions: { retrieve: vi.fn() },
   invoices: { retrieve: vi.fn() },
   customers: { create: vi.fn() },
@@ -31,12 +39,15 @@ vi.mock("@/lib/notifications/service", () => ({
     newTrainerBooking: vi.fn(),
   },
 }));
+import { mutate } from "@/app/[locale]/dashboard/workspace/actions";
+import { availableSlots } from "./schedule";
 import { prisma } from "@/lib/prisma";
 import { beginSubscription } from "./subscription-checkout";
-import { reserveBooking, cancelReservation } from "./bookings";
+import { reserveBooking, cancelReservation, refundBooking } from "./bookings";
 import {
   handleCheckoutSessionCompleted,
   handleInvoicePaid,
+  handleRefundUpdated,
 } from "@/lib/stripe/subscription-webhooks";
 import type Stripe from "stripe";
 const enabled = !!process.env.TEST_DATABASE_URL;
@@ -60,6 +71,9 @@ describe.skipIf(!enabled)(
       return d;
     };
     beforeEach(async () => {
+      trainer = "";
+      client = "";
+      other = "";
       vi.clearAllMocks();
       const prefix = `test-marketplace-${randomUUID()}`;
       trainer = (
@@ -156,6 +170,7 @@ describe.skipIf(!enabled)(
       });
     });
     afterEach(async () => {
+      if (!trainer) return;
       await prisma.subscriptionPurchase.deleteMany({
         where: { subscriptionPlan: { trainerProfile: { userId: trainer } } },
       });
@@ -298,6 +313,50 @@ describe.skipIf(!enabled)(
         await prisma.paymentRecord.count({ where: { trainerId: trainer } }),
       ).toBe(1);
     });
+    it("retries terminal refund failures and ignores a delayed failure from an older attempt", async () => {
+      const b = await reserve(client);
+      const pi = `pi_${b.bookingId}`,
+        failedId = `re_failed_${b.bookingId}`,
+        successId = `re_success_${b.bookingId}`;
+      await prisma.booking.update({
+        where: { id: b.bookingId },
+        data: {
+          status: "CANCELED",
+          stripePaymentIntentId: pi,
+          refundAmount: 5000,
+          refundStatus: "PENDING",
+        },
+      });
+      stripe.refunds.create
+        .mockResolvedValueOnce({ id: failedId, status: "failed", amount: 5000 })
+        .mockResolvedValueOnce({
+          id: successId,
+          status: "succeeded",
+          amount: 5000,
+        });
+      stripe.refunds.retrieve.mockResolvedValue({
+        id: failedId,
+        status: "failed",
+        amount: 5000,
+        payment_intent: pi,
+        metadata: { bookingId: b.bookingId },
+      });
+      await refundBooking(b.bookingId);
+      expect(
+        (await prisma.booking.findUniqueOrThrow({ where: { id: b.bookingId } }))
+          .refundStatus,
+      ).toBe("FAILED");
+      await refundBooking(b.bookingId);
+      expect(stripe.refunds.create.mock.calls[1][1].idempotencyKey).toBe(
+        `booking-refund:${b.bookingId}:after:${failedId}`,
+      );
+      await handleRefundUpdated({ id: failedId } as Stripe.Refund);
+      const record = await prisma.booking.findUniqueOrThrow({
+        where: { id: b.bookingId },
+      });
+      expect(record.refundStatus).toBe("SUCCEEDED");
+      expect(record.stripeRefundId).toBe(successId);
+    });
     it("prevents trial reuse", async () => {
       await prisma.sessionOffering.update({
         where: { id: offering },
@@ -307,6 +366,85 @@ describe.skipIf(!enabled)(
       await expect(
         reserve(client, { startsAt: new Date(start().getTime() + 86400000) }),
       ).rejects.toThrow("once per trainer");
+    });
+    it("keeps the original slot until the other participant approves a reschedule", async () => {
+      const b = await reserve(client, { passId: pass });
+      const next = new Date(start().getTime() + 86400000);
+      const form = (op: string, extra: Record<string, string>) => {
+        const f = new FormData();
+        f.set("op", op);
+        f.set("id", b.bookingId);
+        for (const [key, value] of Object.entries(extra)) f.set(key, value);
+        return f;
+      };
+      actor.id = client;
+      actor.role = "CLIENT";
+      await expect(
+        mutate("ja", form("reschedule", { startsAtUtc: next.toISOString() })),
+      ).rejects.toThrow("saved=1");
+      let record = await prisma.booking.findUniqueOrThrow({
+        where: { id: b.bookingId },
+      });
+      expect(record.startsAt).toEqual(start());
+      expect(record.proposedStartsAt).toEqual(next);
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        await expect(
+          mutate(
+            "ja",
+            form("respondSchedule", { proposal: next.toISOString() }),
+          ),
+        ).rejects.toThrow("error=1");
+      } finally {
+        log.mockRestore();
+      }
+      actor.id = trainer;
+      actor.role = "TRAINER";
+      await expect(
+        mutate("ja", form("respondSchedule", { proposal: next.toISOString() })),
+      ).rejects.toThrow("saved=1");
+      record = await prisma.booking.findUniqueOrThrow({
+        where: { id: b.bookingId },
+      });
+      expect(record.startsAt).toEqual(next);
+      expect(record.proposedStartsAt).toBeNull();
+    });
+    it("rejects reschedule acceptance when someone else has taken the proposed time", async () => {
+      const b = await reserve(client, { passId: pass });
+      const next = new Date(start().getTime() + 86400000);
+      await prisma.booking.update({
+        where: { id: b.bookingId },
+        data: { proposedStartsAt: next, proposedBy: client },
+      });
+      await reserve(other, { startsAt: next });
+      actor.id = trainer;
+      actor.role = "TRAINER";
+      const f = new FormData();
+      f.set("op", "respondSchedule");
+      f.set("id", b.bookingId);
+      f.set("proposal", next.toISOString());
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        await expect(mutate("en", f)).rejects.toThrow("error=1");
+      } finally {
+        log.mockRestore();
+      }
+      expect(
+        (await prisma.booking.findUniqueOrThrow({ where: { id: b.bookingId } }))
+          .startsAt,
+      ).toEqual(start());
+    });
+    it("allows existing participants to see reschedule slots after a trainer unpublishes", async () => {
+      const b = await reserve(client, { passId: pass });
+      await prisma.trainerProfile.update({
+        where: { id: profile },
+        data: { isPublished: false },
+      });
+      const day = start().toISOString().slice(0, 10);
+      expect(await availableSlots(offering, day, "UTC")).toEqual([]);
+      expect(await availableSlots(offering, day, "UTC", b.bookingId)).toContain(
+        start().toISOString(),
+      );
     });
     it("reuses one subscription checkout for concurrent purchases", async () => {
       const plan = await prisma.subscriptionPlan.create({

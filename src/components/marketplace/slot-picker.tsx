@@ -4,9 +4,11 @@ import { inputClass } from "./styles";
 export function SlotPicker({
   offeringId,
   ja,
+  bookingId,
 }: {
   offeringId: string;
   ja: boolean;
+  bookingId?: string;
 }) {
   const timezone = useSyncExternalStore(
     () => () => {},
@@ -22,7 +24,7 @@ export function SlotPicker({
     if (!day || !offeringId) return;
     const controller = new AbortController();
     fetch(
-      `/api/availability?${new URLSearchParams({ offering: offeringId, day, timezone })}`,
+      `/api/availability?${new URLSearchParams({ offering: offeringId, day, timezone, ...(bookingId ? { booking: bookingId } : {}) })}`,
       { signal: controller.signal },
     )
       .then(async (r) => {
@@ -40,7 +42,7 @@ export function SlotPicker({
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [day, offeringId, timezone]);
+  }, [day, offeringId, timezone, bookingId]);
   return (
     <div className="grid gap-3">
       <p className="text-sm text-slate-600">

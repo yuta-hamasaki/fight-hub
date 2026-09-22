@@ -1,3 +1,4 @@
+import { statusLabel } from "@/lib/marketplace/labels";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import type { Locale } from "@/lib/constants/locales";
@@ -553,7 +554,7 @@ export async function Coaching({
                 href={`/${locale}/dashboard/bookings/${b.id}`}
               >
                 {b.startsAt.toISOString().slice(0, 10)} ·{" "}
-                {b.sessionOffering.titleEn} · {b.status}
+                {b.sessionOffering.titleEn} · {statusLabel(b.status, locale)}
               </Link>
             ))}
           </Panel>
@@ -765,7 +766,10 @@ export async function Passes({
           <h3 className="font-bold">{p.title}</h3>
           <p>
             {p.remaining} / {p.credits} {ja ? "回残り" : "credits remaining"} ·{" "}
-            {p.expiresAt && p.expiresAt < new Date() ? "EXPIRED" : p.status}
+            {statusLabel(
+              p.expiresAt && p.expiresAt < new Date() ? "EXPIRED" : p.status,
+              locale,
+            )}
           </p>
           <p>
             {ja ? "利用期限" : "Valid until"}:{" "}

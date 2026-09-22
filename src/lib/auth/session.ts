@@ -29,6 +29,7 @@ export function dashboardPathForRole(
 }
 
 export async function requireAuth(locale: Locale) {
+  if (locale !== "ja" && locale !== "en") throw new Error("Invalid locale");
   const { userId } = await auth();
 
   if (!userId) {

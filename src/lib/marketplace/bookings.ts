@@ -181,24 +181,42 @@ export async function refundBooking(id: string) {
   )
     return;
   try {
-    const refund = await getStripeClient().refunds.create(
-      {
-        payment_intent: b.stripePaymentIntentId,
-        amount: toMinor(Number(b.refundAmount), b.currency),
-        reverse_transfer: true,
-        refund_application_fee: true,
-        metadata: { bookingId: id },
-      },
-      { idempotencyKey: `booking-refund:${id}` },
-    );
+    const stripe = getStripeClient();
+    const existing = b.stripeRefundId
+      ? await stripe.refunds.retrieve(b.stripeRefundId)
+      : null;
+    // Reconcile pending refunds. Only a terminal failed/canceled refund starts
+    // a new attempt; concurrent retries share the prior refund's key.
+    const refund =
+      existing && !["failed", "canceled"].includes(existing.status ?? "pending")
+        ? existing
+        : await stripe.refunds.create(
+            {
+              payment_intent: b.stripePaymentIntentId,
+              amount: toMinor(Number(b.refundAmount), b.currency),
+              reverse_transfer: true,
+              refund_application_fee: true,
+              metadata: { bookingId: id },
+            },
+            {
+              idempotencyKey: `booking-refund:${id}${existing ? `:after:${existing.id}` : ""}`,
+            },
+          );
     const status =
       refund.status === "succeeded"
         ? "SUCCEEDED"
         : refund.status === "failed" || refund.status === "canceled"
           ? "FAILED"
           : "PENDING";
-    await prisma.booking.update({
-      where: { id },
+    await prisma.booking.updateMany({
+      where: {
+        id,
+        refundStatus: { not: "SUCCEEDED" },
+        OR: [
+          { stripeRefundId: b.stripeRefundId },
+          { stripeRefundId: refund.id },
+        ],
+      },
       data: { stripeRefundId: refund.id, refundStatus: status },
     });
     if (status === "SUCCEEDED")
@@ -207,8 +225,12 @@ export async function refundBooking(id: string) {
         data: { refunded: fromMinor(refund.amount, b.currency) },
       });
   } catch {
-    await prisma.booking.update({
-      where: { id },
+    await prisma.booking.updateMany({
+      where: {
+        id,
+        stripeRefundId: b.stripeRefundId,
+        refundStatus: { not: "SUCCEEDED" },
+      },
       data: { refundStatus: "FAILED" },
     });
   }
@@ -253,7 +275,8 @@ export async function cancelReservation(
           ? eligible
             ? "CREDIT_RETURNED"
             : "NONE"
-          : eligible
+          : eligible &&
+              (current.stripePaymentIntentId || current.stripeCheckoutSessionId)
             ? "PENDING"
             : "NONE",
       },

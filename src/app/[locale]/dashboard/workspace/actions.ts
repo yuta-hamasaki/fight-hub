@@ -211,12 +211,29 @@ export async function mutate(locale: Locale, f: FormData) {
             }),
           ]);
           if (!prior && !booking && !member) throw new Error("Not authorized");
-        } else if (
-          !(await prisma.trainerProfile.findFirst({
-            where: { userId: trainerId, isPublished: true },
-          }))
-        )
-          throw new Error("Not found");
+        } else {
+          const [published, prior, booking, member] = await Promise.all([
+            prisma.trainerProfile.findFirst({
+              where: { userId: trainerId, isPublished: true },
+            }),
+            prisma.message.findFirst({
+              where: { trainerId, clientId: user.id },
+            }),
+            prisma.booking.findFirst({
+              where: { trainerId, clientId: user.id },
+            }),
+            prisma.subscriptionPurchase.findFirst({
+              where: {
+                userId: user.id,
+                subscriptionPlan: { trainerProfile: { userId: trainerId } },
+              },
+            }),
+          ]);
+          // Hiding a public profile must not prevent existing customers from
+          // discussing their booking, membership, or an earlier inquiry.
+          if (!published && !prior && !booking && !member)
+            throw new Error("Not found");
+        }
         const bookingId = text(f, "bookingId", 100) || null;
         if (
           bookingId &&

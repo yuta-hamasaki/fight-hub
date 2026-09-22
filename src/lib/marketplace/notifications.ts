@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { sendLineText } from "@/lib/line/messaging";
 export async function notify(
   userId: string,
@@ -10,15 +11,16 @@ export async function notify(
   // An in-app notification remains available even if LINE is disconnected or fails.
   const data = { userId, titleJa, titleEn, path, dedupeKey };
   if (dedupeKey) {
-    const exists = await prisma.appNotification.findUnique({
-      where: { dedupeKey },
-    });
-    if (exists) return;
-    await prisma.appNotification.upsert({
-      where: { dedupeKey },
-      create: data,
-      update: {},
-    });
+    try {
+      await prisma.appNotification.create({ data });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      )
+        return;
+      throw error;
+    }
   } else await prisma.appNotification.create({ data });
   const [line, profile] = await Promise.all([
     prisma.lineConnection.findUnique({ where: { userId } }),

@@ -76,12 +76,14 @@ export async function availableSlots(
   offeringId: string,
   day: string,
   timezone: string,
+  authorizedBookingId?: string,
 ) {
   const offering = await prisma.sessionOffering.findFirst({
     where: {
       id: offeringId,
-      isActive: true,
-      trainerProfile: { isPublished: true },
+      ...(authorizedBookingId
+        ? { bookings: { some: { id: authorizedBookingId } } }
+        : { isActive: true, trainerProfile: { isPublished: true } }),
     },
   });
   if (!offering) return [];
@@ -93,7 +95,13 @@ export async function availableSlots(
     return [];
   const from = new Date(noon.getTime() - 36 * 3600000),
     to = new Date(noon.getTime() + 36 * 3600000);
-  const data = await scheduleData(prisma, offering.trainerUserId, from, to);
+  const data = await scheduleData(
+    prisma,
+    offering.trainerUserId,
+    from,
+    to,
+    authorizedBookingId,
+  );
   const slots: string[] = [];
   for (let t = from.getTime(); t < to.getTime(); t += 15 * 60000) {
     const start = new Date(t);

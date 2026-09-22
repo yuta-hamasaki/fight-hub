@@ -1,4 +1,5 @@
 export const dayMs = 86400000;
+const formatters = new Map<string, Intl.DateTimeFormat>();
 export function validTimezone(value: string) {
   try {
     new Intl.DateTimeFormat("en", { timeZone: value }).format();
@@ -8,15 +9,21 @@ export function validTimezone(value: string) {
   }
 }
 export function localParts(date: Date, timezone: string) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(date);
+  let formatter = formatters.get(timezone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    });
+    if (formatters.size >= 64) formatters.clear();
+    formatters.set(timezone, formatter);
+  }
+  const parts = formatter.formatToParts(date);
   const get = (type: string) => parts.find((p) => p.type === type)!.value;
   const day = `${get("year")}-${get("month")}-${get("day")}`;
   return {

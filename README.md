@@ -28,6 +28,8 @@ Fight Hub is a bilingual (`en` / `ja`) marketplace for finding martial-arts and 
 - Idempotent Stripe webhook processing for checkout, subscription, and Connect account events.
 - A 6% platform fee applied to session and subscription payments.
 
+See [marketplace workflows and deployment](docs/marketplace-workflows.md) for the new workspace, scheduling and cancellation policies, coaching, messages, passes, support, notifications, and deployment requirements. Application notifications use in-app and LINE delivery; email notifications are not implemented.
+
 ## Technology
 
 - Next.js 16 App Router and React 19
@@ -78,43 +80,44 @@ Open [http://localhost:3000](http://localhost:3000). The root route redirects to
 
 ## Useful commands
 
-| Command | Purpose |
-| --- | --- |
-| `npm run dev` | Generate Prisma Client and start the development server. |
-| `npm run build` | Generate Prisma Client and create a production build. |
-| `npm run start` | Start a completed production build. |
-| `npm run lint` | Run ESLint. |
-| `npm test` | Run the Vitest suite once. |
-| `npm run test:watch` | Run Vitest in watch mode. |
-| `npm run prisma:generate` | Regenerate Prisma Client. |
-| `npm run prisma:migrate` | Create/apply a development migration. |
-| `npm run prisma:seed` | Create or update the published dummy trainer. |
-| `npm run prisma:studio` | Open Prisma Studio. |
+| Command                   | Purpose                                                  |
+| ------------------------- | -------------------------------------------------------- |
+| `npm run dev`             | Generate Prisma Client and start the development server. |
+| `npm run build`           | Generate Prisma Client and create a production build.    |
+| `npm run start`           | Start a completed production build.                      |
+| `npm run lint`            | Run ESLint.                                              |
+| `npm test`                | Run the Vitest suite once.                               |
+| `npm run test:watch`      | Run Vitest in watch mode.                                |
+| `npm run prisma:generate` | Regenerate Prisma Client.                                |
+| `npm run prisma:migrate`  | Create/apply a development migration.                    |
+| `npm run prisma:seed`     | Create or update the published dummy trainer.            |
+| `npm run prisma:studio`   | Open Prisma Studio.                                      |
 
 ## Main routes
 
 Replace `{locale}` with `en` or `ja`.
 
-| Route | Access | Description |
-| --- | --- | --- |
-| `/{locale}/trainers` | Public | Trainer directory. |
-| `/{locale}/trainers/{trainerId}` | Public; client actions require sign-in | Trainer profile, purchasing, booking, and reviews. |
-| `/{locale}/dashboard/client` | Client | Client bookings, subscriptions, and content access. |
-| `/{locale}/dashboard/trainer` | Trainer | Trainer management dashboard. |
-| `/{locale}/dashboard/trainer/content` | Trainer | Premium content management. |
-| `/{locale}/dashboard/trainer/revenue` | Trainer | Sales, fee, net revenue, and payout reporting. |
-| `/{locale}/trainer/dashboard/stripe` | Trainer | Stripe Connect and Express dashboard access. |
-| `/api/stripe/webhook` | Stripe | Checkout and subscription events. |
-| `/api/stripe/connect/webhook` | Stripe Connect | Connected-account events. |
+| Route                                 | Access                                 | Description                                         |
+| ------------------------------------- | -------------------------------------- | --------------------------------------------------- |
+| `/{locale}/trainers`                  | Public                                 | Trainer directory.                                  |
+| `/{locale}/trainers/{trainerId}`      | Public; client actions require sign-in | Trainer profile, purchasing, booking, and reviews.  |
+| `/{locale}/dashboard/client`          | Client                                 | Client bookings, subscriptions, and content access. |
+| `/{locale}/dashboard/trainer`         | Trainer                                | Trainer management dashboard.                       |
+| `/{locale}/dashboard/trainer/content` | Trainer                                | Premium content management.                         |
+| `/{locale}/dashboard/trainer/revenue` | Trainer                                | Sales, fee, net revenue, and payout reporting.      |
+| `/{locale}/trainer/dashboard/stripe`  | Trainer                                | Stripe Connect and Express dashboard access.        |
+| `/api/stripe/webhook`                 | Stripe                                 | Checkout and subscription events.                   |
+| `/api/stripe/connect/webhook`         | Stripe Connect                         | Connected-account events.                           |
 
 ## Revenue and review behavior
 
-- Each client owns at most one review per trainer. Saving again updates that review; deletion is restricted to its owner.
-- Revenue totals include paid completed sessions and recorded initial subscription purchases.
-- The displayed platform fee and net revenue are calculated from the current 6% fee policy.
+- Each client owns at most one review per trainer. Posting requires a completed session; deletion is restricted to its owner. Trainers can publish replies.
+- Revenue uses a payment ledger for paid sessions, packages, every paid subscription invoice, and refunds. Use the revenue screen to sync historical Stripe payments after upgrading.
+- Payments record the platform fee at purchase; net figures are estimates excluding Stripe processing fees and adjustments. Different currencies are shown separately.
 - Payout history is read from the trainer's connected Stripe account. If Stripe is not configured or temporarily unavailable, the rest of the revenue dashboard remains usable.
 
 ## Project documentation
 
+- [Marketplace workflows, verification, and deployment](docs/marketplace-workflows.md)
 - [MVP architecture and implementation notes](docs/mvp-architecture-plan.md)
 - [Stripe Connect onboarding and webhook setup](docs/stripe-connect-onboarding.md)
