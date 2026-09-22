@@ -1,4 +1,5 @@
 "use server";
+import { cancelReservation } from "@/lib/marketplace/bookings";
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -11,27 +12,22 @@ import { getAppBaseUrl, getStripeClient } from "@/lib/stripe";
 export async function cancelBooking(locale: Locale, formData: FormData) {
   const user = await requireDbUser(locale);
   const bookingId = String(formData.get("bookingId") ?? "");
-  const reason = String(formData.get("reason") ?? "").trim().slice(0, 300);
-  const booking = await prisma.booking.findFirst({
-    where: { id: bookingId, clientId: user.id, status: { in: ["PENDING", "CONFIRMED"] } },
-  });
-  if (!booking || booking.startsAt <= new Date()) return;
-
-  if (booking.stripePaymentIntentId) {
-    await getStripeClient().refunds.create({ payment_intent: booking.stripePaymentIntentId });
-  }
-  await prisma.booking.update({
-    where: { id: booking.id },
-    data: { status: "CANCELED", canceledAt: new Date(), cancellationReason: reason || null },
-  });
+  const reason = String(formData.get("reason") ?? "")
+    .trim()
+    .slice(0, 300);
+  await cancelReservation(bookingId, user.id, reason);
   revalidatePath(`/${locale}/dashboard/client`);
   revalidatePath(`/${locale}/dashboard/trainer`);
 }
 
-export async function openBillingPortal(locale: Locale) {
+export async function openBillingPortal(locale: Locale, formData: FormData) {
   const user = await requireDbUser(locale);
   const purchase = await prisma.subscriptionPurchase.findFirst({
-    where: { userId: user.id, stripeCustomerId: { not: null } },
+    where: {
+      userId: user.id,
+      id: String(formData.get("purchaseId") || ""),
+      stripeCustomerId: { not: null },
+    },
     orderBy: { createdAt: "desc" },
     select: { stripeCustomerId: true },
   });

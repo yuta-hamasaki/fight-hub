@@ -8,7 +8,7 @@ const globalForPrisma = globalThis as unknown as {
 
 // Increment this value whenever the Prisma schema gains a model. This prevents
 // Next.js development HMR from reusing a client created from an older schema.
-const PRISMA_SCHEMA_VERSION = 3;
+const PRISMA_SCHEMA_VERSION = 4;
 
 function normalizedDatabaseUrl(value: string | undefined) {
   if (!value) {
@@ -17,7 +17,11 @@ function normalizedDatabaseUrl(value: string | undefined) {
 
   const url = new URL(value);
   const sslMode = url.searchParams.get("sslmode");
-  if (sslMode === "prefer" || sslMode === "require" || sslMode === "verify-ca") {
+  if (
+    sslMode === "prefer" ||
+    sslMode === "require" ||
+    sslMode === "verify-ca"
+  ) {
     url.searchParams.set("sslmode", "verify-full");
   }
 
@@ -28,7 +32,10 @@ const adapter = new PrismaPg({
   connectionString: normalizedDatabaseUrl(process.env.DATABASE_URL),
 });
 
-if (globalForPrisma.prisma && globalForPrisma.prismaSchemaVersion !== PRISMA_SCHEMA_VERSION) {
+if (
+  globalForPrisma.prisma &&
+  globalForPrisma.prismaSchemaVersion !== PRISMA_SCHEMA_VERSION
+) {
   void globalForPrisma.prisma.$disconnect();
   globalForPrisma.prisma = undefined;
 }

@@ -17,6 +17,7 @@ enum BookingStatus {
   CONFIRMED
   COMPLETED
   CANCELED
+  NO_SHOW
 }
 
 enum PurchaseStatus {
@@ -76,7 +77,27 @@ model StripeWebhookEvent {
 }
 
 model User {
+  availabilityExceptions AvailabilityException[]
+  intake                 ClientIntake?
+  coachingClients        CoachingRecord[]        @relation("CoachingTrainer")
+  coachingTrainers       CoachingRecord[]        @relation("CoachingClient")
+  assignedTasks          Assignment[]            @relation("AssignmentTrainer")
+  receivedTasks          Assignment[]            @relation("AssignmentClient")
+  trainerMessages        Message[]               @relation("MessageTrainer")
+  clientMessages         Message[]               @relation("MessageClient")
+  sentMessages           Message[]               @relation("MessageSender")
+  appNotifications       AppNotification[]
+  favorites              Favorite[]
+  supportTickets         SupportTicket[]
+  checkouts              SubscriptionCheckout[]
+  sales                  PaymentRecord[]         @relation("PaymentTrainer")
+  payments               PaymentRecord[]         @relation("PaymentClient")
+  packages               SessionPackage[]
+  issuedPasses           PassPurchase[]          @relation("PassTrainer")
+  purchasedPasses        PassPurchase[]          @relation("PassClient")
+
   id                    String                 @id @default(cuid())
+  stripeCustomerId      String?                @unique
   clerkUserId           String                 @unique
   email                 String?                @unique
   role                  UserRole               @default(CLIENT)
@@ -118,31 +139,39 @@ model Profile {
 }
 
 model TrainerProfile {
-  id              String             @id @default(cuid())
-  userId          String             @unique
-  profileImageUrl String?            @db.VarChar(2048)
-  headline        String?
-  headlineJa      String?
-  shortBio        String?
-  shortBioJa      String?
-  longBio         String?
-  longBioJa       String?
-  languages       Json?
-  achievements    Json?
-  certifications  Json?
-  coachingFormats Json?
-  socialLinks     Json?
-  experienceYears Int?
-  hourlyRate      Decimal?           @db.Decimal(10, 2)
-  currency        String             @default("JPY") @db.VarChar(3)
-  isPublished     Boolean            @default(false)
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  categories      TrainerCategory[]
-  plans           SubscriptionPlan[]
-  offerings       SessionOffering[]
-  reviews         Review[]
+  favorites Favorite[]
+  views     ProfileView[]
+
+  id                String             @id @default(cuid())
+  userId            String             @unique
+  profileImageUrl   String?            @db.VarChar(2048)
+  headline          String?
+  headlineJa        String?
+  shortBio          String?
+  shortBioJa        String?
+  longBio           String?
+  longBioJa         String?
+  languages         Json?
+  achievements      Json?
+  certifications    Json?
+  coachingFormats   Json?
+  socialLinks       Json?
+  region            String?
+  timezone          String             @default("Asia/Tokyo")
+  bookingLeadHours  Int                @default(24)
+  bufferMinutes     Int                @default(15)
+  cancellationHours Int                @default(24)
+  experienceYears   Int?
+  hourlyRate        Decimal?           @db.Decimal(10, 2)
+  currency          String             @default("JPY") @db.VarChar(3)
+  isPublished       Boolean            @default(false)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categories        TrainerCategory[]
+  plans             SubscriptionPlan[]
+  offerings         SessionOffering[]
+  reviews           Review[]
 
   @@index([isPublished])
 }
@@ -161,6 +190,8 @@ model TrainerCategory {
 }
 
 model SubscriptionPlan {
+  checkouts SubscriptionCheckout[]
+
   id               String                 @id @default(cuid())
   trainerProfileId String
   nameEn           String
@@ -217,6 +248,9 @@ model ContentAccess {
 }
 
 model SessionOffering {
+  packages SessionPackage[]
+  passes   PassPurchase[]
+
   id               String         @id @default(cuid())
   trainerProfileId String
   trainerUserId    String
@@ -225,6 +259,10 @@ model SessionOffering {
   descriptionEn    String?
   descriptionJa    String?
   durationMinutes  Int
+  isTrial          Boolean        @default(false)
+  location         String?
+  meetingUrl       String?
+  preparation      String?
   price            Decimal        @db.Decimal(10, 2)
   currency         String         @default("JPY") @db.VarChar(3)
   isActive         Boolean        @default(true)
@@ -239,6 +277,10 @@ model SessionOffering {
 }
 
 model Booking {
+  messages Message[]
+  tickets  SupportTicket[]
+  pass     PassPurchase?   @relation(fields: [passPurchaseId], references: [id], onDelete: Restrict)
+
   id                      String            @id @default(cuid())
   sessionOfferingId       String
   clientId                String
@@ -247,6 +289,21 @@ model Booking {
   startsAt                DateTime
   endsAt                  DateTime
   notes                   String?
+  timezone                String            @default("UTC")
+  location                String?
+  meetingUrl              String?
+  preparation             String?
+  feedback                String?
+  holdExpiresAt           DateTime?
+  cancelBefore            DateTime?
+  refundStatus            String            @default("NONE")
+  refundAmount            Decimal?          @db.Decimal(10, 2)
+  stripeRefundId          String?           @unique
+  proposedStartsAt        DateTime?
+  proposedBy              String?
+  passPurchaseId          String?
+  seriesId                String?
+  isTrial                 Boolean           @default(false)
   stripeCheckoutSessionId String?           @unique
   stripePaymentIntentId   String?           @unique
   amountPaid              Decimal?          @db.Decimal(10, 2)
@@ -314,6 +371,10 @@ model SubscriptionPurchase {
   stripeCheckoutSessionId String?          @unique
   stripeCustomerId        String?
   stripeSubscriptionId    String?          @unique
+  currentPeriodEnd        DateTime?
+  cancelAtPeriodEnd       Boolean          @default(false)
+  priceMonthly            Decimal?         @db.Decimal(10, 2)
+  currency                String           @default("JPY")
   startedAt               DateTime         @default(now())
   expiresAt               DateTime?
   canceledAt              DateTime?
@@ -333,6 +394,8 @@ model Review {
   reviewerId       String
   targetUserId     String
   rating           Int
+  trainerReply     String?
+  repliedAt        DateTime?
   titleEn          String?
   titleJa          String?
   commentEn        String?
@@ -361,4 +424,205 @@ model StripeAccount {
   user             User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([stripeAccountId])
+}
+
+model AvailabilityException {
+  trainer User @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+
+  id        String   @id @default(cuid())
+  trainerId String
+  startsAt  DateTime
+  endsAt    DateTime
+  available Boolean  @default(false)
+
+  @@index([trainerId, startsAt])
+}
+
+model ClientIntake {
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  userId         String   @id
+  goals          String   @default("")
+  experience     String   @default("")
+  considerations String   @default("")
+  timezone       String   @default("Asia/Tokyo")
+  updatedAt      DateTime @updatedAt
+}
+
+model CoachingRecord {
+  trainer User @relation("CoachingTrainer", fields: [trainerId], references: [id], onDelete: Cascade)
+  client  User @relation("CoachingClient", fields: [clientId], references: [id], onDelete: Cascade)
+
+  id           String @id @default(cuid())
+  trainerId    String
+  clientId     String
+  privateNotes String @default("")
+
+  @@unique([trainerId, clientId])
+}
+
+model Assignment {
+  trainer User @relation("AssignmentTrainer", fields: [trainerId], references: [id], onDelete: Cascade)
+  client  User @relation("AssignmentClient", fields: [clientId], references: [id], onDelete: Cascade)
+
+  id           String    @id @default(cuid())
+  trainerId    String
+  clientId     String
+  title        String
+  instructions String
+  dueAt        DateTime?
+  completedAt  DateTime?
+  progress     String    @default("")
+  createdAt    DateTime  @default(now())
+
+  @@index([clientId, createdAt])
+  @@index([trainerId, clientId])
+}
+
+model Message {
+  trainer User     @relation("MessageTrainer", fields: [trainerId], references: [id], onDelete: Cascade)
+  client  User     @relation("MessageClient", fields: [clientId], references: [id], onDelete: Cascade)
+  sender  User     @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  id        String   @id @default(cuid())
+  trainerId String
+  clientId  String
+  senderId  String
+  bookingId String?
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([trainerId, clientId, createdAt])
+}
+
+model AppNotification {
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  id        String    @id @default(cuid())
+  userId    String
+  titleJa   String
+  titleEn   String
+  path      String
+  dedupeKey String?   @unique
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model Favorite {
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trainerProfile TrainerProfile @relation(fields: [trainerProfileId], references: [id], onDelete: Cascade)
+
+  userId           String
+  trainerProfileId String
+  createdAt        DateTime @default(now())
+
+  @@id([userId, trainerProfileId])
+}
+
+model SupportTicket {
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  id        String   @id @default(cuid())
+  userId    String
+  bookingId String?
+  subject   String
+  body      String
+  status    String   @default("OPEN")
+  response  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
+model ProfileView {
+  trainerProfile TrainerProfile @relation(fields: [trainerProfileId], references: [id], onDelete: Cascade)
+
+  trainerProfileId String
+  visitorKey       String
+  day              String
+
+  @@id([trainerProfileId, visitorKey, day])
+}
+
+model SubscriptionCheckout {
+  user User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  userId    String
+  planId    String
+  sessionId String?  @unique
+  expiresAt DateTime
+
+  @@id([userId, planId])
+}
+
+model PaymentRecord {
+  trainer User @relation("PaymentTrainer", fields: [trainerId], references: [id], onDelete: Restrict)
+  client  User @relation("PaymentClient", fields: [clientId], references: [id], onDelete: Restrict)
+
+  id              String   @id
+  trainerId       String
+  clientId        String
+  kind            String
+  description     String
+  amount          Decimal  @db.Decimal(10, 2)
+  refunded        Decimal  @default(0) @db.Decimal(10, 2)
+  fee             Decimal  @default(0) @db.Decimal(10, 2)
+  currency        String   @default("JPY")
+  paymentIntentId String?
+  occurredAt      DateTime @default(now())
+
+  @@index([trainerId, occurredAt])
+  @@index([paymentIntentId])
+}
+
+model SessionPackage {
+  trainer   User            @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  offering  SessionOffering @relation(fields: [offeringId], references: [id], onDelete: Restrict)
+  purchases PassPurchase[]
+
+  id           String  @id @default(cuid())
+  trainerId    String
+  offeringId   String
+  title        String
+  credits      Int
+  price        Decimal @db.Decimal(10, 2)
+  currency     String  @default("JPY")
+  validityDays Int     @default(90)
+  active       Boolean @default(true)
+
+  @@index([trainerId, active])
+}
+
+model PassPurchase {
+  trainer  User            @relation("PassTrainer", fields: [trainerId], references: [id], onDelete: Restrict)
+  user     User            @relation("PassClient", fields: [userId], references: [id], onDelete: Restrict)
+  offering SessionOffering @relation(fields: [offeringId], references: [id], onDelete: Restrict)
+  package  SessionPackage  @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  bookings Booking[]
+
+  id                String    @id @default(cuid())
+  userId            String
+  trainerId         String
+  offeringId        String
+  packageId         String
+  title             String
+  credits           Int
+  remaining         Int
+  amount            Decimal   @db.Decimal(10, 2)
+  currency          String    @default("JPY")
+  validityDays      Int
+  expiresAt         DateTime?
+  status            String    @default("PENDING")
+  checkoutSessionId String?   @unique
+  paymentIntentId   String?   @unique
+  createdAt         DateTime  @default(now())
+
+  @@index([userId, status])
 }

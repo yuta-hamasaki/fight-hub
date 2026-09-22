@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
 
@@ -9,5 +10,7 @@ export default defineConfig({
     environment: "node",
     include: ["src/**/*.test.ts"],
     clearMocks: true,
+    testTimeout: 30000,
+    hookTimeout: 30000,
   },
 });

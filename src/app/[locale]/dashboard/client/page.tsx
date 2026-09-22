@@ -1,15 +1,22 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { requireDbUser } from "@/lib/auth/session";
 import type { Locale } from "@/lib/constants/locales";
 import { dictionary } from "@/lib/i18n/dictionary";
 import { prisma } from "@/lib/prisma";
-import { getAccessiblePremiumPosts, getActiveSubscriptions } from "@/lib/subscriptions";
-import { Button } from "@/components/ui/button";
+import {
+  getAccessiblePremiumPosts,
+  getActiveSubscriptions,
+} from "@/lib/subscriptions";
 import { LineConnectionCard } from "@/components/line/line-connection-card";
-import { cancelBooking, openBillingPortal } from "./actions";
 
 export default async function ClientDashboardPage({
   params,
@@ -26,26 +33,52 @@ export default async function ClientDashboardPage({
   if (user.role !== "CLIENT") {
     redirect(`/${locale}/dashboard`);
   }
-  const [subscriptions, premiumPosts, bookings, lineConnection] = await Promise.all([
-    getActiveSubscriptions(user.id, locale),
-    getAccessiblePremiumPosts(user.id, locale),
-    prisma.booking.findMany({
-      where: { clientId: user.id },
-      include: {
-        trainer: { include: { profile: true } },
-        sessionOffering: true,
-      },
-      orderBy: { startsAt: "desc" },
-      take: 20,
-    }),
-    prisma.lineConnection.findUnique({ where: { userId: user.id } }),
-  ]);
+  const [subscriptions, premiumPosts, bookings, lineConnection] =
+    await Promise.all([
+      getActiveSubscriptions(user.id, locale),
+      getAccessiblePremiumPosts(user.id, locale),
+      prisma.booking.findMany({
+        where: { clientId: user.id },
+        include: {
+          trainer: { include: { profile: true } },
+          sessionOffering: true,
+        },
+        orderBy: { startsAt: "desc" },
+        take: 20,
+      }),
+      prisma.lineConnection.findUnique({ where: { userId: user.id } }),
+    ]);
+
+  const bookingCount = await prisma.booking.count({
+    where: { clientId: user.id },
+  });
 
   return (
     <div className="space-y-6">
+      <div className="flex flex-wrap gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4">
+        {[
+          ["bookings", "予約管理", "Bookings"],
+          ["messages", "メッセージ", "Messages"],
+          ["coaching", "指導・課題", "Coaching"],
+          ["notifications", "通知", "Notifications"],
+          ["billing", "契約管理", "Memberships"],
+          ["passes", "回数券", "Passes"],
+          ["support", "サポート", "Support"],
+        ].map(([tab, ja, en]) => (
+          <Link
+            key={tab}
+            className="font-medium text-blue-700 underline"
+            href={`/${locale}/dashboard/workspace?tab=${tab}`}
+          >
+            {locale === "ja" ? ja : en}
+          </Link>
+        ))}
+      </div>
       {result.booking === "success" || result.purchase === "success" ? (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">
-          {locale === "ja" ? "決済が完了しました。Stripeの確認後、ステータスが更新されます。" : "Payment completed. The status will update after Stripe confirms it."}
+          {locale === "ja"
+            ? "決済が完了しました。Stripeの確認後、ステータスが更新されます。"
+            : "Payment completed. The status will update after Stripe confirms it."}
         </div>
       ) : null}
       <Card className="border-blue-100 bg-white">
@@ -53,7 +86,9 @@ export default async function ClientDashboardPage({
           <CardTitle>{copy.clientDashboardTitle}</CardTitle>
           <CardDescription>{copy.clientDashboardDescription}</CardDescription>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">{copy.clientDashboardBody}</CardContent>
+        <CardContent className="text-sm text-muted-foreground">
+          {copy.clientDashboardBody}
+        </CardContent>
       </Card>
 
       <LineConnectionCard
@@ -61,26 +96,44 @@ export default async function ClientDashboardPage({
         role="client"
         connected={Boolean(lineConnection)}
         enabled={lineConnection?.notificationEnabled}
-        copy={{ title: copy.lineClientTitle, description: copy.lineClientDescription, email: copy.lineEmail, enabled: copy.lineEnabled, line: copy.lineLabel, connected: copy.lineConnected, notConnected: copy.lineNotConnected, connect: copy.lineConnect, disconnect: copy.lineDisconnect, enable: copy.lineEnable, disable: copy.lineDisable }}
+        copy={{
+          title: copy.lineClientTitle,
+          description: copy.lineClientDescription,
+          email: copy.lineEmail,
+          enabled: copy.lineEnabled,
+          line: copy.lineLabel,
+          connected: copy.lineConnected,
+          notConnected: copy.lineNotConnected,
+          connect: copy.lineConnect,
+          disconnect: copy.lineDisconnect,
+          enable: copy.lineEnable,
+          disable: copy.lineDisable,
+        }}
       />
 
       <section className="grid gap-4 md:grid-cols-3">
         <Card className="border-blue-100">
           <CardHeader>
             <CardDescription>{copy.subscriptionActiveTitle}</CardDescription>
-            <CardTitle className="text-xl text-blue-700">{subscriptions.length}</CardTitle>
+            <CardTitle className="text-xl text-blue-700">
+              {subscriptions.length}
+            </CardTitle>
           </CardHeader>
         </Card>
         <Card className="border-blue-100">
           <CardHeader>
             <CardDescription>{copy.sessionBookingHistoryTitle}</CardDescription>
-            <CardTitle className="text-xl text-blue-700">{bookings.length}</CardTitle>
+            <CardTitle className="text-xl text-blue-700">
+              {bookingCount}
+            </CardTitle>
           </CardHeader>
         </Card>
         <Card className="border-blue-100">
           <CardHeader>
             <CardDescription>{copy.dashboardPurchasedContent}</CardDescription>
-            <CardTitle className="text-xl text-blue-700">{premiumPosts.length}</CardTitle>
+            <CardTitle className="text-xl text-blue-700">
+              {premiumPosts.length}
+            </CardTitle>
           </CardHeader>
         </Card>
       </section>
@@ -91,20 +144,24 @@ export default async function ClientDashboardPage({
         </CardHeader>
         <CardContent className="space-y-3">
           {subscriptions.length ? (
-            <form action={openBillingPortal.bind(null, locale)}>
-              <Button type="submit" variant="outline">{locale === "ja" ? "支払い方法・解約を管理" : "Manage billing and cancellation"}</Button>
-            </form>
-          ) : null}
-          {subscriptions.length ? (
             subscriptions.map((subscription) => (
-              <article key={subscription.id} className="rounded-lg border border-border p-3 text-sm">
+              <article
+                key={subscription.id}
+                className="rounded-lg border border-border p-3 text-sm"
+              >
                 <p className="font-semibold">{subscription.planName}</p>
-                <p className="text-muted-foreground">{subscription.trainerName}</p>
-                <p className="text-xs text-muted-foreground">{copy.subscriptionStartedAt}: {subscription.startedAt}</p>
+                <p className="text-muted-foreground">
+                  {subscription.trainerName}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {copy.subscriptionStartedAt}: {subscription.startedAt}
+                </p>
               </article>
             ))
           ) : (
-            <p className="text-sm text-muted-foreground">{copy.subscriptionNoActivePlans}</p>
+            <p className="text-sm text-muted-foreground">
+              {copy.subscriptionNoActivePlans}
+            </p>
           )}
         </CardContent>
       </Card>
@@ -117,23 +174,37 @@ export default async function ClientDashboardPage({
         <CardContent className="space-y-2">
           {bookings.length ? (
             bookings.map((booking) => (
-              <article key={booking.id} className="rounded-lg border border-border p-3 text-sm">
-                <p className="font-semibold">{locale === "ja" ? booking.sessionOffering.titleJa || booking.sessionOffering.titleEn : booking.sessionOffering.titleEn}</p>
-                <p className="text-muted-foreground">{booking.trainer.profile?.displayName || booking.trainer.email || "Trainer"}</p>
-                <p className="text-xs text-muted-foreground">
-                  {new Intl.DateTimeFormat(locale === "ja" ? "ja-JP" : "en-US", { dateStyle: "medium", timeStyle: "short" }).format(booking.startsAt)} · {booking.status}
+              <article
+                key={booking.id}
+                className="rounded-lg border border-border p-3 text-sm"
+              >
+                <Link
+                  className="font-semibold text-blue-700 underline"
+                  href={`/${locale}/dashboard/bookings/${booking.id}`}
+                >
+                  {locale === "ja"
+                    ? booking.sessionOffering.titleJa ||
+                      booking.sessionOffering.titleEn
+                    : booking.sessionOffering.titleEn}
+                </Link>
+                <p className="text-muted-foreground">
+                  {booking.trainer.profile?.displayName ||
+                    booking.trainer.email ||
+                    "Trainer"}
                 </p>
-                {booking.startsAt > new Date() && (booking.status === "PENDING" || booking.status === "CONFIRMED") ? (
-                  <form action={cancelBooking.bind(null, locale)} className="mt-3 flex flex-wrap gap-2">
-                    <input type="hidden" name="bookingId" value={booking.id} />
-                    <input name="reason" maxLength={300} placeholder={locale === "ja" ? "キャンセル理由（任意）" : "Cancellation reason (optional)"} className="min-w-48 flex-1 rounded-md border px-3 py-2" />
-                    <Button type="submit" size="sm" variant="outline">{locale === "ja" ? "予約をキャンセル・返金" : "Cancel and refund"}</Button>
-                  </form>
-                ) : null}
+                <p className="text-xs text-muted-foreground">
+                  {new Intl.DateTimeFormat(
+                    locale === "ja" ? "ja-JP" : "en-US",
+                    { dateStyle: "medium", timeStyle: "short" },
+                  ).format(booking.startsAt)}{" "}
+                  · {booking.status}
+                </p>
               </article>
             ))
           ) : (
-            <p className="text-sm text-muted-foreground">{copy.sessionBookingNoHistory}</p>
+            <p className="text-sm text-muted-foreground">
+              {copy.sessionBookingNoHistory}
+            </p>
           )}
         </CardContent>
       </Card>
@@ -142,7 +213,10 @@ export default async function ClientDashboardPage({
         <CardHeader>
           <CardTitle>{copy.dashboardPurchasedContent}</CardTitle>
           <CardDescription className="text-blue-700">
-            <Link href={`/${locale}/dashboard/client/content`} className="underline">
+            <Link
+              href={`/${locale}/dashboard/client/content`}
+              className="underline"
+            >
               {copy.clientPremiumOpenList}
             </Link>
           </CardDescription>
@@ -150,14 +224,21 @@ export default async function ClientDashboardPage({
         <CardContent className="space-y-2">
           {premiumPosts.length ? (
             premiumPosts.map((post) => (
-              <article key={post.id} className="rounded-lg border border-border p-3 text-sm">
+              <article
+                key={post.id}
+                className="rounded-lg border border-border p-3 text-sm"
+              >
                 <p className="font-semibold">{post.title}</p>
                 <p className="text-muted-foreground">{post.body}</p>
-                <p className="text-xs text-muted-foreground">{post.trainerName} · {post.publishedAt}</p>
+                <p className="text-xs text-muted-foreground">
+                  {post.trainerName} · {post.publishedAt}
+                </p>
               </article>
             ))
           ) : (
-            <p className="text-sm text-muted-foreground">{copy.subscriptionNoPremiumPosts}</p>
+            <p className="text-sm text-muted-foreground">
+              {copy.subscriptionNoPremiumPosts}
+            </p>
           )}
         </CardContent>
       </Card>
@@ -167,10 +248,16 @@ export default async function ClientDashboardPage({
           <CardTitle>{copy.dashboardContentAccessPoints}</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-2 sm:grid-cols-2">
-          <Link href={`/${locale}/dashboard/client/content`} className="rounded-md border border-blue-100 p-3 text-sm font-medium text-blue-700 hover:bg-blue-50">
+          <Link
+            href={`/${locale}/dashboard/client/content`}
+            className="rounded-md border border-blue-100 p-3 text-sm font-medium text-blue-700 hover:bg-blue-50"
+          >
             {copy.clientPremiumOpenList}
           </Link>
-          <Link href={`/${locale}/trainers`} className="rounded-md border border-blue-100 p-3 text-sm font-medium text-blue-700 hover:bg-blue-50">
+          <Link
+            href={`/${locale}/trainers`}
+            className="rounded-md border border-blue-100 p-3 text-sm font-medium text-blue-700 hover:bg-blue-50"
+          >
             {copy.trainers}
           </Link>
         </CardContent>

@@ -5,7 +5,9 @@ import { revalidatePath } from "next/cache";
 import { requireDbUser } from "@/lib/auth/session";
 import type { Locale } from "@/lib/constants/locales";
 import { prisma } from "@/lib/prisma";
-import { getStripeClient } from "@/lib/stripe";
+import { cancelReservation } from "@/lib/marketplace/bookings";
+import { canFinishBooking } from "@/lib/marketplace/rules";
+import { notificationService } from "@/lib/notifications/service";
 
 function t(value: FormDataEntryValue | null) {
   return String(value ?? "").trim();
@@ -36,7 +38,10 @@ export async function saveSessionOffering(locale: Locale, formData: FormData) {
     return;
   }
 
-  const trainerProfile = await prisma.trainerProfile.findUnique({ where: { userId: user.id }, select: { id: true } });
+  const trainerProfile = await prisma.trainerProfile.findUnique({
+    where: { userId: user.id },
+    select: { id: true },
+  });
   if (!trainerProfile) {
     return;
   }
@@ -47,11 +52,20 @@ export async function saveSessionOffering(locale: Locale, formData: FormData) {
   const descriptionEn = t(formData.get("descriptionEn"));
   const descriptionJa = t(formData.get("descriptionJa"));
   const format = t(formData.get("format")) || "online";
-  const durationMinutes = Number.parseInt(t(formData.get("durationMinutes")), 10);
+  const durationMinutes = Number.parseInt(
+    t(formData.get("durationMinutes")),
+    10,
+  );
   const price = Number.parseFloat(t(formData.get("price")));
   const isActive = t(formData.get("isActive")) === "on";
 
-  if (!titleEn || !Number.isFinite(durationMinutes) || durationMinutes < 15 || !Number.isFinite(price) || price <= 0) {
+  if (
+    !titleEn ||
+    !Number.isFinite(durationMinutes) ||
+    durationMinutes < 15 ||
+    !Number.isFinite(price) ||
+    price <= 0
+  ) {
     return;
   }
 
@@ -83,34 +97,25 @@ export async function saveSessionOffering(locale: Locale, formData: FormData) {
 
 export async function updateBookingStatus(locale: Locale, formData: FormData) {
   const user = await requireDbUser(locale);
-  if (user.role !== "TRAINER") {
-    return;
-  }
-
-  const bookingId = t(formData.get("bookingId"));
-  const status = t(formData.get("status"));
-  if (!bookingId || !["PENDING", "CONFIRMED", "COMPLETED", "CANCELED"].includes(status)) {
-    return;
-  }
-
-  if (status === "CANCELED") {
-    const booking = await prisma.booking.findFirst({
-      where: { id: bookingId, trainerId: user.id, status: { in: ["PENDING", "CONFIRMED"] } },
-      select: { stripePaymentIntentId: true },
-    });
-    if (booking?.stripePaymentIntentId) {
-      await getStripeClient().refunds.create({ payment_intent: booking.stripePaymentIntentId });
-    }
-  }
-
-  await prisma.booking.updateMany({
+  if (user.role !== "TRAINER") return;
+  const bookingId = t(formData.get("bookingId")),
+    status = t(formData.get("status"));
+  const booking = await prisma.booking.findFirst({
     where: { id: bookingId, trainerId: user.id },
-    data: {
-      status: status as "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELED",
-      canceledAt: status === "CANCELED" ? new Date() : undefined,
-    },
   });
-
-  revalidatePath(`/${locale}/dashboard/trainer`);
-  revalidatePath(`/${locale}/dashboard/client`);
+  if (!booking) return;
+  if (status === "CANCELED")
+    await cancelReservation(bookingId, user.id, t(formData.get("reason")));
+  else if (
+    ["COMPLETED", "NO_SHOW"].includes(status) &&
+    canFinishBooking(booking.status, booking.endsAt)
+  ) {
+    await prisma.booking.updateMany({
+      where: { id: bookingId, status: "CONFIRMED" },
+      data: { status: status as "COMPLETED" | "NO_SHOW" },
+    });
+    if (status === "COMPLETED")
+      await notificationService.reviewRequest(bookingId);
+  }
+  revalidatePath(`/${locale}/dashboard`, "layout");
 }

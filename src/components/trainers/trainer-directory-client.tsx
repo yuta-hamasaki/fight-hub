@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { TrainerCard } from "@/components/trainers/trainer-card";
 import type { Locale } from "@/lib/constants/locales";
@@ -14,6 +14,10 @@ type TrainerListItem = {
   languages: string[];
   rating: number | null;
   reviewCount: number;
+  region: string;
+  minimumPrice: number | null;
+  formats: string[];
+  offeringIds: string[];
 };
 
 type TrainerDirectoryClientProps = {
@@ -31,24 +35,78 @@ type TrainerDirectoryClientProps = {
   };
 };
 
-export function TrainerDirectoryClient({ locale, trainers, categories, copy }: TrainerDirectoryClientProps) {
+export function TrainerDirectoryClient({
+  locale,
+  trainers,
+  categories,
+  copy,
+}: TrainerDirectoryClientProps) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
 
+  const [language, setLanguage] = useState("");
+  const [format, setFormat] = useState("");
+  const [region, setRegion] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [day, setDay] = useState("");
+  const [available, setAvailable] = useState<string[] | null>(null);
+  const [dateError, setDateError] = useState(false);
+  const ja = locale === "ja";
+  useEffect(() => {
+    if (!day) return;
+    const controller = new AbortController();
+    fetch(
+      `/api/discovery?${new URLSearchParams({ day, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC" })}`,
+      { signal: controller.signal },
+    )
+      .then(async (r) => {
+        if (!r.ok) throw new Error();
+        return r.json();
+      })
+      .then((data) => {
+        setAvailable(data.trainerIds);
+      })
+      .catch((e) => {
+        if (e.name !== "AbortError") setDateError(true);
+      });
+    return () => controller.abort();
+  }, [day]);
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
 
     return trainers.filter((trainer) => {
-      const categoryMatch = category === "all" || trainer.categories.includes(category);
+      const categoryMatch =
+        category === "all" || trainer.categories.includes(category);
       const queryMatch =
         !query ||
         trainer.name.toLowerCase().includes(query) ||
         trainer.bio.toLowerCase().includes(query) ||
         trainer.categories.some((item) => item.toLowerCase().includes(query));
 
-      return categoryMatch && queryMatch;
+      return (
+        categoryMatch &&
+        queryMatch &&
+        (!language || trainer.languages.includes(language)) &&
+        (!format || trainer.formats.includes(format)) &&
+        (!region ||
+          trainer.region.toLowerCase().includes(region.toLowerCase())) &&
+        (!maxPrice ||
+          (trainer.minimumPrice !== null &&
+            trainer.minimumPrice <= Number(maxPrice))) &&
+        (!day || (available !== null && available.includes(trainer.id)))
+      );
     });
-  }, [category, search, trainers]);
+  }, [
+    category,
+    search,
+    trainers,
+    language,
+    format,
+    region,
+    maxPrice,
+    day,
+    available,
+  ]);
 
   return (
     <section className="space-y-6">
@@ -81,16 +139,96 @@ export function TrainerDirectoryClient({ locale, trainers, categories, copy }: T
         </label>
       </div>
 
+      <div className="grid gap-3 rounded-xl border p-4 sm:grid-cols-2 lg:grid-cols-5">
+        <label className="grid gap-1 text-sm">
+          {ja ? "対応言語" : "Language"}
+          <select
+            className="rounded-lg border p-2"
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+          >
+            <option value="">{ja ? "すべて" : "All"}</option>
+            {[...new Set(trainers.flatMap((t) => t.languages))]
+              .sort()
+              .map((l) => (
+                <option key={l}>{l}</option>
+              ))}
+          </select>
+        </label>
+        <label className="grid gap-1 text-sm">
+          {ja ? "指導形式" : "Format"}
+          <select
+            className="rounded-lg border p-2"
+            value={format}
+            onChange={(e) => setFormat(e.target.value)}
+          >
+            <option value="">{ja ? "すべて" : "All"}</option>
+            <option value="online">{ja ? "オンライン" : "Online"}</option>
+            <option value="in_person">{ja ? "対面" : "In person"}</option>
+            <option value="hybrid">{ja ? "両方" : "Hybrid"}</option>
+          </select>
+        </label>
+        <label className="grid gap-1 text-sm">
+          {ja ? "地域・駅名" : "Region / station"}
+          <input
+            className="rounded-lg border p-2"
+            value={region}
+            onChange={(e) => setRegion(e.target.value)}
+          />
+        </label>
+        <label className="grid gap-1 text-sm">
+          {ja ? "料金上限（円）" : "Maximum price (JPY)"}
+          <input
+            className="rounded-lg border p-2"
+            type="number"
+            min={0}
+            value={maxPrice}
+            onChange={(e) => setMaxPrice(e.target.value)}
+          />
+        </label>
+        <label className="grid gap-1 text-sm">
+          {ja ? "空きのある日" : "Available on"}
+          <input
+            className="rounded-lg border p-2"
+            type="date"
+            value={day}
+            onChange={(e) => {
+              setDay(e.target.value);
+              setAvailable(null);
+              setDateError(false);
+            }}
+          />
+        </label>
+      </div>
+      {day && available === null && !dateError && (
+        <p role="status">
+          {ja ? "空き日程を確認中…" : "Checking availability…"}
+        </p>
+      )}
+      {dateError && (
+        <p role="alert">
+          {ja
+            ? "空き日程を取得できません。日付を選び直してください。"
+            : "Unable to load availability. Select a date again."}
+        </p>
+      )}
       {filtered.length ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filtered.map((trainer) => (
-            <TrainerCard key={trainer.id} locale={locale} trainer={trainer} detailsCta={copy.detailsCta} />
+            <TrainerCard
+              key={trainer.id}
+              locale={locale}
+              trainer={trainer}
+              detailsCta={copy.detailsCta}
+            />
           ))}
         </div>
       ) : (
         <div className="rounded-xl border border-dashed border-border p-10 text-center">
           <p className="text-lg font-semibold">{copy.emptyTitle}</p>
-          <p className="mt-2 text-sm text-muted-foreground">{copy.emptyDescription}</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {copy.emptyDescription}
+          </p>
         </div>
       )}
     </section>

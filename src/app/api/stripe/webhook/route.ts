@@ -3,6 +3,9 @@ import type Stripe from "stripe";
 import { verifyStripeWebhook } from "@/lib/stripe/webhook-signature";
 import { processStripeWebhookEvent } from "@/lib/stripe/webhook-events";
 import {
+  handleInvoicePaid,
+  handleChargeRefunded,
+  handleRefundUpdated,
   handleCheckoutSessionCompleted,
   handleCheckoutSessionExpired,
   handleInvoicePaymentFailed,
@@ -26,32 +29,47 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await processStripeWebhookEvent(event, async (claimedEvent) => {
-      switch (claimedEvent.type) {
-        case "checkout.session.completed":
-          await handleCheckoutSessionCompleted(claimedEvent.data.object);
-          break;
-        case "checkout.session.expired":
-          await handleCheckoutSessionExpired(claimedEvent.data.object);
-          break;
-        case "customer.subscription.created":
-        case "customer.subscription.updated":
-          await handleSubscriptionUpdated(claimedEvent.data.object);
-          break;
-        case "customer.subscription.deleted":
-          await handleSubscriptionDeleted(claimedEvent.data.object);
-          break;
-        case "invoice.payment_failed":
-          await handleInvoicePaymentFailed(claimedEvent.data.object);
-          break;
-        default:
-          break;
-      }
-    });
+    const result = await processStripeWebhookEvent(
+      event,
+      async (claimedEvent) => {
+        switch (claimedEvent.type) {
+          case "checkout.session.completed":
+            await handleCheckoutSessionCompleted(claimedEvent.data.object);
+            break;
+          case "checkout.session.expired":
+            await handleCheckoutSessionExpired(claimedEvent.data.object);
+            break;
+          case "customer.subscription.created":
+          case "customer.subscription.updated":
+            await handleSubscriptionUpdated(claimedEvent.data.object);
+            break;
+          case "customer.subscription.deleted":
+            await handleSubscriptionDeleted(claimedEvent.data.object);
+            break;
+          case "invoice.paid":
+            await handleInvoicePaid(claimedEvent.data.object);
+            break;
+          case "charge.refunded":
+            await handleChargeRefunded(claimedEvent.data.object);
+            break;
+          case "refund.created":
+          case "refund.updated":
+          case "refund.failed":
+            await handleRefundUpdated(claimedEvent.data.object);
+            break;
+          case "invoice.payment_failed":
+            await handleInvoicePaymentFailed(claimedEvent.data.object);
+            break;
+          default:
+            break;
+        }
+      },
+    );
 
     return Response.json({ received: true, duplicate: result === "duplicate" });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Webhook handler failed";
+    const message =
+      error instanceof Error ? error.message : "Webhook handler failed";
     return Response.json({ error: message }, { status: 500 });
   }
 }

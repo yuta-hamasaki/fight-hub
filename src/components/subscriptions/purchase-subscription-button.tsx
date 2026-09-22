@@ -1,8 +1,5 @@
-import Link from "next/link";
-
-import { buttonVariants } from "@/components/ui/button";
 import type { Locale } from "@/lib/constants/locales";
-
+import { buttonVariants } from "@/components/ui/button";
 export function PurchaseSubscriptionButton({
   locale,
   planId,
@@ -13,11 +10,11 @@ export function PurchaseSubscriptionButton({
   label: string;
 }) {
   return (
-    <Link
-      href={`/${locale}/api/stripe/checkout?planId=${encodeURIComponent(planId)}`}
-      className={buttonVariants({ size: "sm" })}
-    >
-      {label}
-    </Link>
+    <form method="post" action={`/${locale}/api/stripe/checkout`}>
+      <input type="hidden" name="planId" value={planId} />
+      <button type="submit" className={buttonVariants({ size: "sm" })}>
+        {label}
+      </button>
+    </form>
   );
 }

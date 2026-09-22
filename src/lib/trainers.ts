@@ -11,22 +11,58 @@ type TrainerDirectoryItem = {
   achievements: string[];
   rating: number | null;
   reviewCount: number;
+  region: string;
+  minimumPrice: number | null;
+  formats: string[];
+  offeringIds: string[];
 };
 
 export type TrainerDetail = TrainerDirectoryItem & {
   trainerUserId: string;
+  cancellationHours: number;
+  isVerified: boolean;
   headline: string;
   longBio: string;
   certifications: string[];
   coachingFormats: string[];
-  sessionOfferings: Array<{ id: string; title: string; description: string; durationMinutes: number; price: string; format: string }>;
-  subscriptionPlans: Array<{ id: string; name: string; description: string; priceMonthly: string }>;
-  reviews: Array<{ id: string; reviewerId: string; rating: number; title: string; comment: string; reviewerName: string; createdAt: string }>;
-  premiumPosts: Array<{ id: string; title: string; body: string; publishedAt: string }>;
+  sessionOfferings: Array<{
+    id: string;
+    title: string;
+    description: string;
+    durationMinutes: number;
+    price: string;
+    format: string;
+  }>;
+  subscriptionPlans: Array<{
+    id: string;
+    name: string;
+    description: string;
+    priceMonthly: string;
+  }>;
+  reviews: Array<{
+    id: string;
+    reviewerId: string;
+    rating: number;
+    title: string;
+    comment: string;
+    reviewerName: string;
+    createdAt: string;
+    trainerReply: string | null;
+  }>;
+  premiumPosts: Array<{
+    id: string;
+    title: string;
+    body: string;
+    publishedAt: string;
+  }>;
   externalLinks: Array<{ label: string; href: string }>;
 };
 
-function localized(valueEn: string | null | undefined, valueJa: string | null | undefined, locale: Locale): string {
+function localized(
+  valueEn: string | null | undefined,
+  valueJa: string | null | undefined,
+  locale: Locale,
+): string {
   if (locale === "ja") {
     return valueJa?.trim() || valueEn?.trim() || "";
   }
@@ -37,7 +73,11 @@ function localized(valueEn: string | null | undefined, valueJa: string | null | 
 function toPrice(amount: number | string, currency: string) {
   const numeric = Number(amount);
 
-  return new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(numeric);
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 0,
+  }).format(numeric);
 }
 
 function decodeDescription(value: string | null) {
@@ -49,7 +89,10 @@ function decodeDescription(value: string | null) {
 
   return {
     format: match[1].toLowerCase(),
-    description: input.replace(/^\[\[format:(online|in_person|hybrid)\]\]\n?/i, ""),
+    description: input.replace(
+      /^\[\[format:(online|in_person|hybrid)\]\]\n?/i,
+      "",
+    ),
   };
 }
 
@@ -75,59 +118,124 @@ function buildLanguages(locale: string | null | undefined): string[] {
 
 function stringList(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
-  return value.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).map((item) => item.trim());
+  return value
+    .filter(
+      (item): item is string =>
+        typeof item === "string" && Boolean(item.trim()),
+    )
+    .map((item) => item.trim());
 }
 
 function socialLinks(value: unknown): Array<{ label: string; href: string }> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return [];
 
-  const labels: Record<string, string> = { website: "Website", instagram: "Instagram", x: "X", youtube: "YouTube" };
+  const labels: Record<string, string> = {
+    website: "Website",
+    instagram: "Instagram",
+    x: "X",
+    youtube: "YouTube",
+  };
   return Object.entries(value)
-    .filter((entry): entry is [string, string] => typeof entry[1] === "string" && /^https?:\/\//i.test(entry[1]))
+    .filter(
+      (entry): entry is [string, string] =>
+        typeof entry[1] === "string" && /^https?:\/\//i.test(entry[1]),
+    )
     .map(([key, href]) => ({ label: labels[key] ?? key, href }));
 }
 
-export async function getTrainerDirectory(locale: Locale): Promise<TrainerDirectoryItem[]> {
+export async function getTrainerDirectory(
+  locale: Locale,
+): Promise<TrainerDirectoryItem[]> {
   const trainers = (await prisma.trainerProfile.findMany({
     where: { isPublished: true },
     include: {
       user: { include: { profile: true } },
       categories: true,
       reviews: { select: { rating: true } },
+      offerings: {
+        where: { isActive: true },
+        select: { id: true, price: true, descriptionEn: true },
+      },
     },
     orderBy: { updatedAt: "desc" },
   })) as Array<{
     id: string;
+    region: string | null;
+    coachingFormats: unknown;
+    offerings: Array<{
+      id: string;
+      price: { toString(): string };
+      descriptionEn: string | null;
+    }>;
     experienceYears: number | null;
     profileImageUrl: string | null;
     languages: unknown;
     achievements: unknown;
     user: {
       email: string | null;
-      profile: { displayName: string | null; displayNameJa: string | null; bio: string | null; bioJa: string | null; locale: string | null } | null;
+      profile: {
+        displayName: string | null;
+        displayNameJa: string | null;
+        bio: string | null;
+        bioJa: string | null;
+        locale: string | null;
+      } | null;
     };
     categories: Array<{ key: string; labelEn: string; labelJa: string | null }>;
     reviews: Array<{ rating: number }>;
   }>;
 
   return trainers.map((trainer) => {
-    const name = localized(trainer.user.profile?.displayName, trainer.user.profile?.displayNameJa, locale) || trainer.user.email || "Trainer";
+    const name =
+      localized(
+        trainer.user.profile?.displayName,
+        trainer.user.profile?.displayNameJa,
+        locale,
+      ) ||
+      trainer.user.email ||
+      "Trainer";
     const ratings = trainer.reviews.map((review) => review.rating);
     return {
       id: trainer.id,
+      region: trainer.region || "",
+      minimumPrice: trainer.offerings.length
+        ? Math.min(...trainer.offerings.map((o) => Number(o.price)))
+        : null,
+      formats: [
+        ...new Set(
+          trainer.offerings.map(
+            (o) => decodeDescription(o.descriptionEn).format,
+          ),
+        ),
+      ],
+      offeringIds: trainer.offerings.map((o) => o.id),
       name,
-      bio: localized(trainer.user.profile?.bio, trainer.user.profile?.bioJa, locale),
+      bio: localized(
+        trainer.user.profile?.bio,
+        trainer.user.profile?.bioJa,
+        locale,
+      ),
       image: trainer.profileImageUrl || avatarDataUri(name),
-      categories: trainer.categories.map((category) => localized(category.labelEn, category.labelJa, locale) || category.key),
-      languages: stringList(trainer.languages).length ? stringList(trainer.languages) : buildLanguages(trainer.user.profile?.locale),
+      categories: trainer.categories.map(
+        (category) =>
+          localized(category.labelEn, category.labelJa, locale) || category.key,
+      ),
+      languages: stringList(trainer.languages).length
+        ? stringList(trainer.languages)
+        : buildLanguages(trainer.user.profile?.locale),
       achievements: stringList(trainer.achievements),
-      rating: ratings.length ? ratings.reduce((sum, value) => sum + value, 0) / ratings.length : null,
+      rating: ratings.length
+        ? ratings.reduce((sum, value) => sum + value, 0) / ratings.length
+        : null,
       reviewCount: ratings.length,
     };
   });
 }
 
-export async function getTrainerDetail(locale: Locale, trainerId: string): Promise<TrainerDetail | null> {
+export async function getTrainerDetail(
+  locale: Locale,
+  trainerId: string,
+): Promise<TrainerDetail | null> {
   const trainer = await prisma.trainerProfile.findFirst({
     where: { id: trainerId, isPublished: true },
     include: {
@@ -155,60 +263,109 @@ export async function getTrainerDetail(locale: Locale, trainerId: string): Promi
 
   if (!trainer) return null;
 
-  const trainerName = localized(trainer.user.profile?.displayName, trainer.user.profile?.displayNameJa, locale) || trainer.user.email || "Trainer";
+  const trainerName =
+    localized(
+      trainer.user.profile?.displayName,
+      trainer.user.profile?.displayNameJa,
+      locale,
+    ) ||
+    trainer.user.email ||
+    "Trainer";
   const ratings = trainer.reviews.map((review) => review.rating);
   const onboardingComplete = Boolean(
     trainer.user.stripeAccount?.detailsSubmitted &&
-      trainer.user.stripeAccount?.chargesEnabled &&
-      trainer.user.stripeAccount?.payoutsEnabled,
+    trainer.user.stripeAccount?.chargesEnabled &&
+    trainer.user.stripeAccount?.payoutsEnabled,
   );
 
   return {
     id: trainer.id,
     trainerUserId: trainer.userId,
+    region: trainer.region || "",
+    minimumPrice: trainer.offerings.length
+      ? Math.min(...trainer.offerings.map((o) => Number(o.price)))
+      : null,
+    formats: [
+      ...new Set(
+        trainer.offerings.map((o) => decodeDescription(o.descriptionEn).format),
+      ),
+    ],
+    offeringIds: trainer.offerings.map((o) => o.id),
+    cancellationHours: trainer.cancellationHours,
+    isVerified: onboardingComplete,
     name: trainerName,
-    bio: localized(trainer.shortBio, trainer.shortBioJa, locale) || localized(trainer.user.profile?.bio, trainer.user.profile?.bioJa, locale),
+    bio:
+      localized(trainer.shortBio, trainer.shortBioJa, locale) ||
+      localized(trainer.user.profile?.bio, trainer.user.profile?.bioJa, locale),
     image: trainer.profileImageUrl || avatarDataUri(trainerName),
     headline: localized(trainer.headline, trainer.headlineJa, locale),
     longBio: localized(trainer.longBio, trainer.longBioJa, locale),
-    categories: trainer.categories.map((category) => localized(category.labelEn, category.labelJa, locale) || category.key),
-    languages: stringList(trainer.languages).length ? stringList(trainer.languages) : buildLanguages(trainer.user.profile?.locale),
+    categories: trainer.categories.map(
+      (category) =>
+        localized(category.labelEn, category.labelJa, locale) || category.key,
+    ),
+    languages: stringList(trainer.languages).length
+      ? stringList(trainer.languages)
+      : buildLanguages(trainer.user.profile?.locale),
     achievements: stringList(trainer.achievements),
     certifications: stringList(trainer.certifications),
     coachingFormats: stringList(trainer.coachingFormats),
-    rating: ratings.length ? ratings.reduce((sum, value) => sum + value, 0) / ratings.length : null,
+    rating: ratings.length
+      ? ratings.reduce((sum, value) => sum + value, 0) / ratings.length
+      : null,
     reviewCount: ratings.length,
-    sessionOfferings: (onboardingComplete ? trainer.offerings : []).map((offering) => {
-      const selected = locale === "ja" ? decodeDescription(offering.descriptionJa) : decodeDescription(offering.descriptionEn);
-      const fallback = decodeDescription(locale === "ja" ? offering.descriptionEn : offering.descriptionJa);
-      return {
-        id: offering.id,
-        title: localized(offering.titleEn, offering.titleJa, locale),
-        description: selected.description || fallback.description,
-        format: selected.format || fallback.format,
-        durationMinutes: offering.durationMinutes,
-        price: toPrice(offering.price.toString(), offering.currency),
-      };
-    }),
-    subscriptionPlans: (onboardingComplete ? trainer.plans : []).map((plan) => ({
-      id: plan.id,
-      name: localized(plan.nameEn, plan.nameJa, locale),
-      description: localized(plan.descriptionEn, plan.descriptionJa, locale),
-      priceMonthly: toPrice(plan.priceMonthly.toString(), plan.currency),
-    })),
+    sessionOfferings: (onboardingComplete ? trainer.offerings : []).map(
+      (offering) => {
+        const selected =
+          locale === "ja"
+            ? decodeDescription(offering.descriptionJa)
+            : decodeDescription(offering.descriptionEn);
+        const fallback = decodeDescription(
+          locale === "ja" ? offering.descriptionEn : offering.descriptionJa,
+        );
+        return {
+          id: offering.id,
+          title: localized(offering.titleEn, offering.titleJa, locale),
+          description: selected.description || fallback.description,
+          format: selected.format || fallback.format,
+          durationMinutes: offering.durationMinutes,
+          price: toPrice(offering.price.toString(), offering.currency),
+        };
+      },
+    ),
+    subscriptionPlans: (onboardingComplete ? trainer.plans : []).map(
+      (plan) => ({
+        id: plan.id,
+        name: localized(plan.nameEn, plan.nameJa, locale),
+        description: localized(plan.descriptionEn, plan.descriptionJa, locale),
+        priceMonthly: toPrice(plan.priceMonthly.toString(), plan.currency),
+      }),
+    ),
     premiumPosts: trainer.user.contentPosts.map((post) => ({
       id: post.id,
       title: localized(post.titleEn, post.titleJa, locale),
-      body: localized(post.summaryEn, post.summaryJa, locale) || localized(post.bodyEn, post.bodyJa, locale),
-      publishedAt: (post.publishedAt ?? post.createdAt).toISOString().slice(0, 10),
+      body:
+        localized(post.summaryEn, post.summaryJa, locale) ||
+        localized(post.bodyEn, post.bodyJa, locale),
+      publishedAt: (post.publishedAt ?? post.createdAt)
+        .toISOString()
+        .slice(0, 10),
     })),
     reviews: trainer.reviews.map((review) => ({
       id: review.id,
       reviewerId: review.reviewerId,
+      trainerReply: review.trainerReply,
       rating: review.rating,
       title: localized(review.titleEn, review.titleJa, locale),
       comment: localized(review.commentEn, review.commentJa, locale),
-      reviewerName: localized(review.reviewer.profile?.displayName, review.reviewer.profile?.displayNameJa, locale) || review.reviewer.email || "Member",
+      reviewerName:
+        localized(
+          review.reviewer.profile?.displayName,
+          review.reviewer.profile?.displayNameJa,
+          locale,
+        ) ||
+        review.reviewer.email ||
+        "Member",
       createdAt: review.createdAt.toISOString().slice(0, 10),
     })),
     externalLinks: socialLinks(trainer.socialLinks),

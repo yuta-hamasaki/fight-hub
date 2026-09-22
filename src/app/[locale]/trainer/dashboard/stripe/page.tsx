@@ -1,6 +1,12 @@
 import { redirect } from "next/navigation";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { requireDbUser } from "@/lib/auth/session";
 import type { Locale } from "@/lib/constants/locales";
 import { prisma } from "@/lib/prisma";
@@ -33,13 +39,16 @@ const COPY: Record<Locale, Copy> = {
     statusNotStarted: "Not started",
     statusPending: "Pending",
     statusCompleted: "Completed",
-    completedMessage: "Stripe registration completed. You can now receive payments.",
-    pendingMessage: "Stripe onboarding is in progress. Continue onboarding to complete setup.",
+    completedMessage:
+      "Stripe registration completed. You can now receive payments.",
+    pendingMessage:
+      "Stripe onboarding is in progress. Continue onboarding to complete setup.",
     startCta: "Start Stripe Registration",
     continueCta: "Continue Stripe Registration",
     loading: "Redirecting...",
     dashboardCta: "Manage bank account and payouts",
-    dashboardHelp: "Open the secure Stripe Express dashboard to update your bank account, payout schedule, and identity details.",
+    dashboardHelp:
+      "Open the secure Stripe Express dashboard to update your bank account, payout schedule, and identity details.",
   },
   ja: {
     title: "Stripe Connect登録",
@@ -48,34 +57,47 @@ const COPY: Record<Locale, Copy> = {
     statusNotStarted: "未開始",
     statusPending: "手続き中",
     statusCompleted: "完了",
-    completedMessage: "Stripe登録が完了しました。支払いを受け取れるようになりました。",
-    pendingMessage: "Stripeのオンボーディングは進行中です。続けて完了してください。",
+    completedMessage:
+      "Stripe登録が完了しました。支払いを受け取れるようになりました。",
+    pendingMessage:
+      "Stripeのオンボーディングは進行中です。続けて完了してください。",
     startCta: "Stripe登録を開始",
     continueCta: "Stripe登録を続ける",
     loading: "リダイレクト中...",
     dashboardCta: "銀行口座・入金設定を管理",
-    dashboardHelp: "Stripe Expressの安全な画面で、銀行口座、入金スケジュール、本人確認情報を更新できます。",
+    dashboardHelp:
+      "Stripe Expressの安全な画面で、銀行口座、入金スケジュール、本人確認情報を更新できます。",
   },
 };
 
-function resolveStatus(account: {
-  onboardingStatus: "NOT_STARTED" | "PENDING" | "COMPLETED";
-  detailsSubmitted: boolean;
-  chargesEnabled: boolean;
-  payoutsEnabled: boolean;
-} | null) {
+function resolveStatus(
+  account: {
+    onboardingStatus: "NOT_STARTED" | "PENDING" | "COMPLETED";
+    detailsSubmitted: boolean;
+    chargesEnabled: boolean;
+    payoutsEnabled: boolean;
+  } | null,
+) {
   if (!account) {
     return "NOT_STARTED" as const;
   }
 
-  if (account.detailsSubmitted && account.chargesEnabled && account.payoutsEnabled) {
+  if (
+    account.detailsSubmitted &&
+    account.chargesEnabled &&
+    account.payoutsEnabled
+  ) {
     return "COMPLETED" as const;
   }
 
-  return account.onboardingStatus === "COMPLETED" ? "COMPLETED" : "PENDING";
+  return "PENDING";
 }
 
-export default async function TrainerStripePage({ params }: { params: Promise<{ locale: Locale }> }) {
+export default async function TrainerStripePage({
+  params,
+}: {
+  params: Promise<{ locale: Locale }>;
+}) {
   const { locale } = await params;
   const copy = COPY[locale];
   const user = await requireDbUser(locale);
@@ -111,23 +133,32 @@ export default async function TrainerStripePage({ params }: { params: Promise<{ 
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            {copy.statusLabel}: <span className="font-medium text-foreground">{statusText}</span>
+            {copy.statusLabel}:{" "}
+            <span className="font-medium text-foreground">{statusText}</span>
           </p>
 
           {status === "COMPLETED" ? (
             <div className="space-y-3">
-              <p className="text-sm font-medium text-emerald-700">{copy.completedMessage}</p>
-              <p className="text-sm text-muted-foreground">{copy.dashboardHelp}</p>
+              <p className="text-sm font-medium text-emerald-700">
+                {copy.completedMessage}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {copy.dashboardHelp}
+              </p>
               <form action={openStripeDashboard.bind(null, locale)}>
                 <Button type="submit">{copy.dashboardCta}</Button>
               </form>
             </div>
           ) : (
             <>
-              <p className="text-sm text-muted-foreground">{status === "PENDING" ? copy.pendingMessage : null}</p>
+              <p className="text-sm text-muted-foreground">
+                {status === "PENDING" ? copy.pendingMessage : null}
+              </p>
               <StripeOnboardingButton
                 locale={locale}
-                idleLabel={status === "PENDING" ? copy.continueCta : copy.startCta}
+                idleLabel={
+                  status === "PENDING" ? copy.continueCta : copy.startCta
+                }
                 loadingLabel={copy.loading}
               />
             </>

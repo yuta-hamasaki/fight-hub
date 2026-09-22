@@ -1,84 +1,196 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-
-import { buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireDbUser } from "@/lib/auth/session";
-import { PLATFORM_FEE_BPS } from "@/lib/billing/fees";
-import { summarizeRevenue, type RevenueTransaction } from "@/lib/billing/revenue";
 import type { Locale } from "@/lib/constants/locales";
 import { prisma } from "@/lib/prisma";
 import { getStripeClient } from "@/lib/stripe";
-
-function money(value: number, currency: string, locale: Locale) {
-  return new Intl.NumberFormat(locale === "ja" ? "ja-JP" : "en-US", {
-    style: "currency", currency, maximumFractionDigits: 0,
-  }).format(value);
-}
-
-export default async function TrainerRevenuePage({ params }: { params: Promise<{ locale: Locale }> }) {
-  const { locale } = await params;
-  const user = await requireDbUser(locale);
+import { fromMinor } from "@/lib/billing/money";
+import { Panel, Form, Notice } from "@/components/marketplace/forms";
+export default async function Revenue({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: Locale }>;
+  searchParams: Promise<{ page?: string; error?: string; saved?: string }>;
+}) {
+  const { locale } = await params,
+    q = await searchParams,
+    user = await requireDbUser(locale),
+    ja = locale === "ja";
   if (user.role !== "TRAINER") redirect(`/${locale}/dashboard`);
-
-  const [bookings, purchases, bookingRevenue, subscriptionRevenue, stripeAccount] = await Promise.all([
-    prisma.booking.findMany({
-      where: { trainerId: user.id, status: "COMPLETED", stripePaymentIntentId: { not: null }, amountPaid: { not: null } },
-      include: { sessionOffering: true }, orderBy: { startsAt: "desc" }, take: 100,
+  const page = Math.max(1, Number.parseInt(q.page || "1") || 1),
+    where = { trainerId: user.id };
+  const [items, total, totals, account] = await Promise.all([
+    prisma.paymentRecord.findMany({
+      where,
+      orderBy: { occurredAt: "desc" },
+      skip: (page - 1) * 30,
+      take: 30,
     }),
-    prisma.subscriptionPurchase.findMany({
-      where: { subscriptionPlan: { trainerProfile: { userId: user.id } } },
-      include: { subscriptionPlan: true }, orderBy: { startedAt: "desc" }, take: 100,
-    }),
-    prisma.booking.findMany({
-      where: { trainerId: user.id, status: "COMPLETED", stripePaymentIntentId: { not: null }, amountPaid: { not: null } },
-      select: { amountPaid: true },
-    }),
-    prisma.subscriptionPurchase.findMany({
-      where: { subscriptionPlan: { trainerProfile: { userId: user.id } } },
-      select: { subscriptionPlan: { select: { priceMonthly: true } } },
+    prisma.paymentRecord.count({ where }),
+    prisma.paymentRecord.groupBy({
+      by: ["currency"],
+      where,
+      _sum: { amount: true, refunded: true, fee: true },
     }),
     prisma.stripeAccount.findUnique({ where: { userId: user.id } }),
   ]);
-
-  const transactions: RevenueTransaction[] = [
-    ...bookings.map((booking) => ({ id: booking.id, kind: "session" as const, label: booking.sessionOffering.titleEn, occurredAt: booking.startsAt, gross: Number(booking.amountPaid), currency: booking.currency })),
-    ...purchases.map((purchase) => ({ id: purchase.id, kind: "subscription" as const, label: purchase.subscriptionPlan.nameEn, occurredAt: purchase.startedAt, gross: Number(purchase.subscriptionPlan.priceMonthly), currency: purchase.subscriptionPlan.currency })),
-  ].sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime());
-  const summary = summarizeRevenue([
-    ...bookingRevenue.map((booking) => ({ gross: Number(booking.amountPaid) })),
-    ...subscriptionRevenue.map((purchase) => ({ gross: Number(purchase.subscriptionPlan.priceMonthly) })),
-  ]);
-  const currency = transactions[0]?.currency ?? "JPY";
-
-  let payouts: Array<{ id: string; amount: number; currency: string; arrivalDate: Date; status: string }> = [];
-  let payoutUnavailable = false;
-  if (stripeAccount && process.env.STRIPE_SECRET_KEY) {
+  const money = (n: number, c: string) =>
+    new Intl.NumberFormat(locale, { style: "currency", currency: c }).format(n);
+  let payouts: {
+    id: string;
+    amount: number;
+    currency: string;
+    arrival_date: number;
+    status: string;
+  }[] = [];
+  let unavailable = false;
+  if (account && process.env.STRIPE_SECRET_KEY)
     try {
-      const result = await getStripeClient().payouts.list({ limit: 20 }, { stripeAccount: stripeAccount.stripeAccountId });
-      payouts = result.data.map((payout) => ({ id: payout.id, amount: payout.amount / 100, currency: payout.currency.toUpperCase(), arrivalDate: new Date(payout.arrival_date * 1000), status: payout.status }));
+      payouts = (
+        await getStripeClient().payouts.list(
+          { limit: 20 },
+          { stripeAccount: account.stripeAccountId },
+        )
+      ).data;
     } catch {
-      payoutUnavailable = true;
+      unavailable = true;
     }
-  }
-
-  const ja = locale === "ja";
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><h1 className="text-2xl font-bold">{ja ? "収益ダッシュボード" : "Revenue dashboard"}</h1><p className="text-sm text-muted-foreground">{ja ? "売上、手数料、手取りとStripeの入金履歴を確認できます。" : "Track sales, fees, net revenue, and Stripe payouts."}</p></div>
-        <Link href={`/${locale}/dashboard/trainer`} className={buttonVariants({ variant: "outline" })}>{ja ? "ダッシュボードへ戻る" : "Back to dashboard"}</Link>
-      </div>
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          [ja ? "売上" : "Gross sales", money(summary.gross, currency, locale)],
-          [ja ? `手数料（${PLATFORM_FEE_BPS / 100}%）` : `Platform fees (${PLATFORM_FEE_BPS / 100}%)`, money(summary.fees, currency, locale)],
-          [ja ? "手取り" : "Net revenue", money(summary.net, currency, locale)],
-          [ja ? "取引件数" : "Transactions", summary.transactionCount.toLocaleString()],
-        ].map(([label, value]) => <Card key={label}><CardHeader><CardDescription>{label}</CardDescription><CardTitle className="text-2xl text-blue-700">{value}</CardTitle></CardHeader></Card>)}
-      </section>
-      <Card><CardHeader><CardTitle>{ja ? "売上明細" : "Sales history"}</CardTitle><CardDescription>{ja ? "決済済みの完了セッションとサブスクリプション初回購入を表示します。" : "Paid completed sessions and initial subscription purchases."}</CardDescription></CardHeader><CardContent className="overflow-x-auto"><table className="w-full min-w-[600px] text-left text-sm"><thead><tr className="border-b"><th className="py-2">{ja ? "日付" : "Date"}</th><th>{ja ? "種別" : "Type"}</th><th>{ja ? "内容" : "Description"}</th><th className="text-right">{ja ? "売上" : "Gross"}</th></tr></thead><tbody>{transactions.map((item) => <tr key={`${item.kind}-${item.id}`} className="border-b last:border-0"><td className="py-3">{new Intl.DateTimeFormat(ja ? "ja-JP" : "en-US", { dateStyle: "medium" }).format(item.occurredAt)}</td><td>{item.kind === "session" ? (ja ? "セッション" : "Session") : (ja ? "サブスク" : "Subscription")}</td><td>{item.label}</td><td className="text-right font-medium">{money(item.gross, item.currency, locale)}</td></tr>)}{transactions.length === 0 ? <tr><td colSpan={4} className="py-8 text-center text-muted-foreground">{ja ? "売上はまだありません。" : "No sales yet."}</td></tr> : null}</tbody></table></CardContent></Card>
-      <Card><CardHeader><CardTitle>{ja ? "入金履歴" : "Payout history"}</CardTitle><CardDescription>{ja ? "Stripeから銀行口座への直近の入金です。" : "Recent Stripe payouts to your bank account."}</CardDescription></CardHeader><CardContent className="space-y-2">{payouts.map((payout) => <div key={payout.id} className="flex items-center justify-between rounded-md border p-3 text-sm"><div><p className="font-medium">{new Intl.DateTimeFormat(ja ? "ja-JP" : "en-US", { dateStyle: "medium" }).format(payout.arrivalDate)}</p><p className="text-muted-foreground">{payout.status} · {payout.id}</p></div><p className="font-semibold">{money(payout.amount, payout.currency, locale)}</p></div>)}{!payouts.length ? <p className="py-4 text-center text-sm text-muted-foreground">{payoutUnavailable ? (ja ? "Stripeの入金履歴を現在取得できません。" : "Stripe payout history is temporarily unavailable.") : (ja ? "入金履歴はまだありません。" : "No payouts yet.")}</p> : null}</CardContent></Card>
+      <h1 className="text-2xl font-bold">
+        {ja ? "収益ダッシュボード" : "Revenue dashboard"}
+      </h1>
+      <Link
+        className="text-blue-700 underline"
+        href={`/${locale}/dashboard/trainer`}
+      >
+        {ja ? "ダッシュボードへ" : "Dashboard"}
+      </Link>
+      <Notice locale={locale} error={q.error} saved={q.saved} />
+      <Form
+        locale={locale}
+        op="syncRevenue"
+        submit={
+          ja
+            ? "Stripeから過去の決済・契約状態を同期"
+            : "Sync historical payments and memberships"
+        }
+      />
+      <Panel title={ja ? "売上・返金" : "Sales and refunds"}>
+        <p className="text-sm">
+          {ja
+            ? "セッション、回数券、毎月の継続課金を決済時点で集計します。通貨ごとに表示します。手取り概算はStripe決済手数料・調整額を含みません。正確な入金はStripeで確認できます。"
+            : "Sessions, packages and recurring invoices are counted when paid, grouped by currency. Estimated net excludes Stripe processing fees and adjustments. See Stripe for actual payouts."}
+        </p>
+        {totals.map((t) => (
+          <div
+            key={t.currency}
+            className="grid gap-3 rounded-lg bg-blue-50 p-4 sm:grid-cols-3"
+          >
+            <p>
+              {ja ? "売上" : "Gross"}:{" "}
+              {money(Number(t._sum.amount), t.currency)}
+            </p>
+            <p>
+              {ja ? "返金" : "Refunds"}:{" "}
+              {money(Number(t._sum.refunded), t.currency)}
+            </p>
+            <p>
+              {ja
+                ? "返金前のプラットフォーム手数料"
+                : "Platform fees before refund adjustments"}
+              : {money(Number(t._sum.fee), t.currency)}
+            </p>
+          </div>
+        ))}
+        {!totals.length && (
+          <p>{ja ? "記録された決済はありません。" : "No recorded payments."}</p>
+        )}
+      </Panel>
+      <Panel title={ja ? "決済履歴" : "Payment history"}>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[640px] text-left text-sm">
+            <thead>
+              <tr>
+                <th>{ja ? "日付" : "Date"}</th>
+                <th>{ja ? "内容" : "Description"}</th>
+                <th>{ja ? "売上" : "Amount"}</th>
+                <th>{ja ? "返金" : "Refunded"}</th>
+                <th>{ja ? "手取り概算" : "Estimated net"}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((p) => {
+                const ratio =
+                  Number(p.amount) > 0
+                    ? Math.max(0, 1 - Number(p.refunded) / Number(p.amount))
+                    : 0;
+                return (
+                  <tr key={p.id} className="border-t">
+                    <td className="py-3">
+                      {p.occurredAt.toISOString().slice(0, 10)}
+                    </td>
+                    <td>
+                      {p.description} · {p.kind}
+                    </td>
+                    <td>{money(Number(p.amount), p.currency)}</td>
+                    <td>{money(Number(p.refunded), p.currency)}</td>
+                    <td>
+                      {money(
+                        (Number(p.amount) - Number(p.fee)) * ratio,
+                        p.currency,
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <nav className="flex gap-4">
+          {page > 1 && (
+            <Link href={`?page=${page - 1}`}>{ja ? "前へ" : "Previous"}</Link>
+          )}
+          <span>
+            {page} / {Math.max(1, Math.ceil(total / 30))}
+          </span>
+          {page * 30 < total && (
+            <Link href={`?page=${page + 1}`}>{ja ? "次へ" : "Next"}</Link>
+          )}
+        </nav>
+      </Panel>
+      <Panel title={ja ? "入金履歴" : "Payouts"}>
+        {payouts.map((p) => (
+          <div
+            key={p.id}
+            className="flex flex-wrap justify-between gap-3 rounded-lg border p-3"
+          >
+            <span>
+              {new Date(p.arrival_date * 1000).toISOString().slice(0, 10)} ·{" "}
+              {p.status}
+            </span>
+            <b>{money(fromMinor(p.amount, p.currency), p.currency)}</b>
+          </div>
+        ))}
+        {!payouts.length && (
+          <p>
+            {unavailable
+              ? ja
+                ? "入金履歴を取得できません。Stripeで確認してください。"
+                : "Unable to load payouts. Check Stripe."
+              : ja
+                ? "入金履歴はまだありません。"
+                : "No payouts yet."}
+          </p>
+        )}
+        <Link
+          className="text-blue-700 underline"
+          href={`/${locale}/trainer/dashboard/stripe`}
+        >
+          {ja ? "Stripeで口座・入金を管理" : "Manage payouts in Stripe"}
+        </Link>
+      </Panel>
     </div>
   );
 }

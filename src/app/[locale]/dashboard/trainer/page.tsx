@@ -4,7 +4,13 @@ import { redirect } from "next/navigation";
 import { TrainerProfileForm } from "@/components/forms/trainer-profile/trainer-profile-form";
 import { SubscriptionPlanManager } from "@/components/forms/subscription-plan/subscription-plan-manager";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { requireDbUser } from "@/lib/auth/session";
 import type { Locale } from "@/lib/constants/locales";
 import { dictionary } from "@/lib/i18n/dictionary";
@@ -15,11 +21,16 @@ import { saveTrainerProfile } from "./actions";
 import { saveSessionOffering, updateBookingStatus } from "./session-actions";
 import { decodeDescription } from "./session-utils";
 import { INITIAL_SUBSCRIPTION_PLAN_STATE } from "./subscription-plan-types";
-import { saveSubscriptionPlan, setPlanPublishStatus } from "./subscription-actions";
+import {
+  saveSubscriptionPlan,
+  setPlanPublishStatus,
+} from "./subscription-actions";
 import { deleteAvailability, saveAvailability } from "./availability-actions";
 
 function toStringArray(value: unknown) {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
 }
 
 function toSocialValue(value: unknown, key: string) {
@@ -39,7 +50,11 @@ function asMoney(amount: number, locale: Locale) {
   }).format(amount);
 }
 
-export default async function TrainerDashboardPage({ params }: { params: Promise<{ locale: Locale }> }) {
+export default async function TrainerDashboardPage({
+  params,
+}: {
+  params: Promise<{ locale: Locale }>;
+}) {
   const { locale } = await params;
   const copy = dictionary[locale];
   const user = await requireDbUser(locale);
@@ -47,7 +62,18 @@ export default async function TrainerDashboardPage({ params }: { params: Promise
     redirect(`/${locale}/dashboard`);
   }
 
-  const [profile, trainerProfile, categories, plans, offerings, bookings, contentCount, stripeAccount, availability, lineConnection] = await Promise.all([
+  const [
+    profile,
+    trainerProfile,
+    categories,
+    plans,
+    offerings,
+    bookings,
+    contentCount,
+    stripeAccount,
+    availability,
+    lineConnection,
+  ] = await Promise.all([
     prisma.profile.findUnique({ where: { userId: user.id } }),
     prisma.trainerProfile.findUnique({ where: { userId: user.id } }),
     prisma.trainerCategory.findMany({
@@ -58,21 +84,53 @@ export default async function TrainerDashboardPage({ params }: { params: Promise
       where: { trainerProfile: { userId: user.id } },
       orderBy: { updatedAt: "desc" },
     }),
-    prisma.sessionOffering.findMany({ where: { trainerUserId: user.id }, orderBy: { updatedAt: "desc" }, take: 20 }),
+    prisma.sessionOffering.findMany({
+      where: { trainerUserId: user.id },
+      orderBy: { updatedAt: "desc" },
+    }),
     prisma.booking.findMany({
-      where: { trainerId: user.id },
-      include: { client: { include: { profile: true } }, sessionOffering: true },
+      where: {
+        trainerId: user.id,
+        startsAt: { gte: new Date() },
+        status: { in: ["PENDING", "CONFIRMED"] },
+      },
+      include: {
+        client: { include: { profile: true } },
+        sessionOffering: true,
+      },
       orderBy: { startsAt: "asc" },
       take: 20,
     }),
     prisma.contentPost.count({ where: { authorId: user.id, isPremium: true } }),
     prisma.stripeAccount.findUnique({ where: { userId: user.id } }),
-    prisma.trainerAvailability.findMany({ where: { trainerId: user.id, isActive: true }, orderBy: [{ dayOfWeek: "asc" }, { startMinute: "asc" }] }),
+    prisma.trainerAvailability.findMany({
+      where: { trainerId: user.id, isActive: true },
+      orderBy: [{ dayOfWeek: "asc" }, { startMinute: "asc" }],
+    }),
     prisma.lineConnection.findUnique({ where: { userId: user.id } }),
   ]);
 
   const now = new Date();
-  const onboardingComplete = Boolean(stripeAccount?.detailsSubmitted && stripeAccount?.chargesEnabled && stripeAccount?.payoutsEnabled);
+  const [bookingStats, upcomingCount] = await Promise.all([
+    prisma.booking.groupBy({
+      by: ["status"],
+      where: { trainerId: user.id },
+      _count: { _all: true },
+      _sum: { amountPaid: true },
+    }),
+    prisma.booking.count({
+      where: {
+        trainerId: user.id,
+        startsAt: { gte: now },
+        status: { in: ["PENDING", "CONFIRMED"] },
+      },
+    }),
+  ]);
+  const onboardingComplete = Boolean(
+    stripeAccount?.detailsSubmitted &&
+    stripeAccount?.chargesEnabled &&
+    stripeAccount?.payoutsEnabled,
+  );
   const profileChecklist = [
     Boolean(profile?.displayName),
     Boolean(trainerProfile?.shortBio),
@@ -83,17 +141,40 @@ export default async function TrainerDashboardPage({ params }: { params: Promise
   const profileCompleted = profileChecklist.every(Boolean);
   const activePlanCount = plans.filter((plan) => plan.isActive).length;
   const totalPlanCount = plans.length;
-  const activeOfferingCount = offerings.filter((offering) => offering.isActive).length;
+  const activeOfferingCount = offerings.filter(
+    (offering) => offering.isActive,
+  ).length;
   const totalOfferingCount = offerings.length;
-  const pendingBookingCount = bookings.filter((booking) => booking.status === "PENDING").length;
-  const upcomingBookingCount = bookings.filter((booking) => booking.startsAt >= now && booking.status !== "CANCELED").length;
-  const completedBookingCount = bookings.filter((booking) => booking.status === "COMPLETED").length;
-  const estimatedEarnings = bookings
-    .filter((booking) => booking.status === "COMPLETED")
-    .reduce((sum, booking) => sum + Number(booking.sessionOffering.price), 0);
+  const pendingBookingCount =
+    bookingStats.find((b) => b.status === "PENDING")?._count._all ?? 0;
+  const upcomingBookingCount = upcomingCount;
+  const completedBookingCount =
+    bookingStats.find((b) => b.status === "COMPLETED")?._count._all ?? 0;
+  const estimatedEarnings = Number(
+    bookingStats.find((b) => b.status === "COMPLETED")?._sum.amountPaid ?? 0,
+  );
 
   return (
     <div className="space-y-6">
+      <div className="flex flex-wrap gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4">
+        {[
+          ["bookings", "予約管理", "Bookings"],
+          ["messages", "メッセージ", "Messages"],
+          ["coaching", "指導・課題", "Coaching"],
+          ["notifications", "通知", "Notifications"],
+          ["billing", "契約管理", "Memberships"],
+          ["passes", "回数券", "Passes"],
+          ["support", "サポート", "Support"],
+        ].map(([tab, ja, en]) => (
+          <Link
+            key={tab}
+            className="font-medium text-blue-700 underline"
+            href={`/${locale}/dashboard/workspace?tab=${tab}`}
+          >
+            {locale === "ja" ? ja : en}
+          </Link>
+        ))}
+      </div>
       <Card className="border-blue-100 bg-white">
         <CardHeader>
           <CardTitle>{copy.trainerDashboardTitle}</CardTitle>
@@ -106,87 +187,210 @@ export default async function TrainerDashboardPage({ params }: { params: Promise
         role="trainer"
         connected={Boolean(lineConnection)}
         enabled={lineConnection?.notificationEnabled}
-        copy={{ title: copy.lineTrainerTitle, description: copy.lineTrainerDescription, email: copy.lineEmail, enabled: copy.lineEnabled, line: copy.lineLabel, connected: copy.lineConnected, notConnected: copy.lineNotConnected, connect: copy.lineConnect, disconnect: copy.lineDisconnect, enable: copy.lineEnable, disable: copy.lineDisable }}
+        copy={{
+          title: copy.lineTrainerTitle,
+          description: copy.lineTrainerDescription,
+          email: copy.lineEmail,
+          enabled: copy.lineEnabled,
+          line: copy.lineLabel,
+          connected: copy.lineConnected,
+          notConnected: copy.lineNotConnected,
+          connect: copy.lineConnect,
+          disconnect: copy.lineDisconnect,
+          enable: copy.lineEnable,
+          disable: copy.lineDisable,
+        }}
       />
 
+      <Link
+        className="text-blue-700 underline"
+        href={`/${locale}/dashboard/workspace?tab=settings`}
+      >
+        {locale === "ja"
+          ? "予約ルール・休業日・体験設定"
+          : "Booking rules, closures and trials"}
+      </Link>
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <Card className="border-blue-100">
           <CardHeader>
             <CardDescription>{copy.dashboardProfileCompletion}</CardDescription>
-            <CardTitle className="text-xl text-blue-700">{profileCompletionRatio}</CardTitle>
-            <p className="text-sm text-muted-foreground">{profileCompleted ? copy.dashboardComplete : copy.dashboardIncomplete}</p>
-          </CardHeader>
-        </Card>
-        <Card className="border-blue-100">
-          <CardHeader>
-            <CardDescription>{copy.dashboardStripeStatus}</CardDescription>
-            <CardTitle className="text-xl text-blue-700">{onboardingComplete ? copy.dashboardComplete : copy.dashboardIncomplete}</CardTitle>
+            <CardTitle className="text-xl text-blue-700">
+              {profileCompletionRatio}
+            </CardTitle>
             <p className="text-sm text-muted-foreground">
-              {stripeAccount?.detailsSubmitted ? copy.trainerStripeDetailSubmitted : copy.dashboardIncomplete} ·{" "}
-              {stripeAccount?.chargesEnabled ? copy.trainerStripeChargesEnabled : copy.dashboardIncomplete}
+              {profileCompleted
+                ? copy.dashboardComplete
+                : copy.dashboardIncomplete}
             </p>
           </CardHeader>
         </Card>
         <Card className="border-blue-100">
           <CardHeader>
-            <CardDescription>{copy.dashboardSubscriptionSummary}</CardDescription>
-            <CardTitle className="text-xl text-blue-700">{activePlanCount} {copy.dashboardActiveLabel}</CardTitle>
-            <p className="text-sm text-muted-foreground">{totalPlanCount} {copy.dashboardTotalLabel}</p>
+            <CardDescription>{copy.dashboardStripeStatus}</CardDescription>
+            <CardTitle className="text-xl text-blue-700">
+              {onboardingComplete
+                ? copy.dashboardComplete
+                : copy.dashboardIncomplete}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              {stripeAccount?.detailsSubmitted
+                ? copy.trainerStripeDetailSubmitted
+                : copy.dashboardIncomplete}{" "}
+              ·{" "}
+              {stripeAccount?.chargesEnabled
+                ? copy.trainerStripeChargesEnabled
+                : copy.dashboardIncomplete}
+            </p>
+          </CardHeader>
+        </Card>
+        <Card className="border-blue-100">
+          <CardHeader>
+            <CardDescription>
+              {copy.dashboardSubscriptionSummary}
+            </CardDescription>
+            <CardTitle className="text-xl text-blue-700">
+              {activePlanCount} {copy.dashboardActiveLabel}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              {totalPlanCount} {copy.dashboardTotalLabel}
+            </p>
           </CardHeader>
         </Card>
         <Card className="border-blue-100">
           <CardHeader>
             <CardDescription>{copy.dashboardContentSummary}</CardDescription>
-            <CardTitle className="text-xl text-blue-700">{contentCount} {copy.dashboardPremiumPostsLabel}</CardTitle>
-            <p className="text-sm text-muted-foreground">{activeOfferingCount}/{totalOfferingCount} {copy.dashboardActiveOfferingsLabel}</p>
+            <CardTitle className="text-xl text-blue-700">
+              {contentCount} {copy.dashboardPremiumPostsLabel}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              {activeOfferingCount}/{totalOfferingCount}{" "}
+              {copy.dashboardActiveOfferingsLabel}
+            </p>
           </CardHeader>
         </Card>
         <Card className="border-blue-100">
           <CardHeader>
             <CardDescription>{copy.dashboardBookingSummary}</CardDescription>
-            <CardTitle className="text-xl text-blue-700">{upcomingBookingCount} {copy.dashboardUpcoming}</CardTitle>
-            <p className="text-sm text-muted-foreground">{pendingBookingCount} {copy.dashboardPending} · {completedBookingCount} {copy.dashboardCompletedLabel}</p>
+            <CardTitle className="text-xl text-blue-700">
+              {upcomingBookingCount} {copy.dashboardUpcoming}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              {pendingBookingCount} {copy.dashboardPending} ·{" "}
+              {completedBookingCount} {copy.dashboardCompletedLabel}
+            </p>
           </CardHeader>
         </Card>
         <Card className="border-blue-100">
           <CardHeader>
             <CardDescription>{copy.dashboardEarningsSummary}</CardDescription>
-            <CardTitle className="text-xl text-blue-700">{copy.dashboardEstimated}: {asMoney(estimatedEarnings, locale)}</CardTitle>
-            <p className="text-sm text-muted-foreground">{completedBookingCount} {copy.dashboardCompletedLabel} {copy.dashboardBookingsLabel}</p>
+            <CardTitle className="text-xl text-blue-700">
+              {copy.dashboardEstimated}: {asMoney(estimatedEarnings, locale)}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              {completedBookingCount} {copy.dashboardCompletedLabel}{" "}
+              {copy.dashboardBookingsLabel}
+            </p>
           </CardHeader>
         </Card>
       </section>
 
       <Card>
         <CardHeader>
-          <CardTitle>{locale === "ja" ? "売上受取・銀行口座設定" : "Payout and bank settings"}</CardTitle>
-          <CardDescription>{locale === "ja" ? "Stripeで本人確認、銀行口座、入金設定を管理します。" : "Manage identity, bank account, and payout settings securely in Stripe."}</CardDescription>
+          <CardTitle>
+            {locale === "ja"
+              ? "売上受取・銀行口座設定"
+              : "Payout and bank settings"}
+          </CardTitle>
+          <CardDescription>
+            {locale === "ja"
+              ? "Stripeで本人確認、銀行口座、入金設定を管理します。"
+              : "Manage identity, bank account, and payout settings securely in Stripe."}
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
-          <Link href={`/${locale}/dashboard/trainer/revenue`}><Button>{locale === "ja" ? "収益ダッシュボードを開く" : "Open revenue dashboard"}</Button></Link>
-          <Link href={`/${locale}/trainer/dashboard/stripe`}><Button variant="outline">{locale === "ja" ? "Stripe設定を開く" : "Open Stripe settings"}</Button></Link>
+          <Link href={`/${locale}/dashboard/trainer/revenue`}>
+            <Button>
+              {locale === "ja"
+                ? "収益ダッシュボードを開く"
+                : "Open revenue dashboard"}
+            </Button>
+          </Link>
+          <Link href={`/${locale}/trainer/dashboard/stripe`}>
+            <Button variant="outline">
+              {locale === "ja" ? "Stripe設定を開く" : "Open Stripe settings"}
+            </Button>
+          </Link>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>{locale === "ja" ? "予約受付時間" : "Booking availability"}</CardTitle>
-          <CardDescription>{locale === "ja" ? "UTC基準で予約を受け付ける曜日と時間帯を設定します。未設定の曜日は制限なしです。" : "Set weekly booking hours in UTC. Days without rules remain unrestricted."}</CardDescription>
+          <CardTitle>
+            {locale === "ja" ? "予約受付時間" : "Booking availability"}
+          </CardTitle>
+          <CardDescription>
+            {locale === "ja"
+              ? "UTC基準の簡易設定です。未設定の曜日は受付しません。現地時間・休業日は予約設定で管理できます。"
+              : "Quick UTC settings. Days without hours are closed. Use booking settings for local times and closures."}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <form action={saveAvailability.bind(null, locale)} className="grid gap-2 sm:grid-cols-4">
-            <select name="dayOfWeek" className="rounded-md border px-3 py-2 text-sm">
-              {(locale === "ja" ? ["日", "月", "火", "水", "木", "金", "土"] : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]).map((day, index) => <option key={day} value={index}>{day}</option>)}
+          <form
+            action={saveAvailability.bind(null, locale)}
+            className="grid gap-2 sm:grid-cols-4"
+          >
+            <select
+              name="dayOfWeek"
+              className="rounded-md border px-3 py-2 text-sm"
+            >
+              {(locale === "ja"
+                ? ["日", "月", "火", "水", "木", "金", "土"]
+                : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+              ).map((day, index) => (
+                <option key={day} value={index}>
+                  {day}
+                </option>
+              ))}
             </select>
-            <input name="startTime" type="time" required className="rounded-md border px-3 py-2 text-sm" />
-            <input name="endTime" type="time" required className="rounded-md border px-3 py-2 text-sm" />
-            <Button type="submit">{locale === "ja" ? "受付時間を追加" : "Add hours"}</Button>
+            <input
+              name="startTime"
+              type="time"
+              required
+              className="rounded-md border px-3 py-2 text-sm"
+            />
+            <input
+              name="endTime"
+              type="time"
+              required
+              className="rounded-md border px-3 py-2 text-sm"
+            />
+            <Button type="submit">
+              {locale === "ja" ? "受付時間を追加" : "Add hours"}
+            </Button>
           </form>
           <div className="space-y-2">
             {availability.map((rule) => (
-              <div key={rule.id} className="flex items-center justify-between rounded-md border p-3 text-sm">
-                <span>{["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][rule.dayOfWeek]} · {String(Math.floor(rule.startMinute / 60)).padStart(2, "0")}:{String(rule.startMinute % 60).padStart(2, "0")}–{String(Math.floor(rule.endMinute / 60)).padStart(2, "0")}:{String(rule.endMinute % 60).padStart(2, "0")} UTC</span>
-                <form action={deleteAvailability.bind(null, locale)}><input type="hidden" name="availabilityId" value={rule.id} /><Button type="submit" size="sm" variant="outline">{locale === "ja" ? "削除" : "Remove"}</Button></form>
+              <div
+                key={rule.id}
+                className="flex items-center justify-between rounded-md border p-3 text-sm"
+              >
+                <span>
+                  {
+                    ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][
+                      rule.dayOfWeek
+                    ]
+                  }{" "}
+                  · {String(Math.floor(rule.startMinute / 60)).padStart(2, "0")}
+                  :{String(rule.startMinute % 60).padStart(2, "0")}–
+                  {String(Math.floor(rule.endMinute / 60)).padStart(2, "0")}:
+                  {String(rule.endMinute % 60).padStart(2, "0")} UTC
+                </span>
+                <form action={deleteAvailability.bind(null, locale)}>
+                  <input type="hidden" name="availabilityId" value={rule.id} />
+                  <Button type="submit" size="sm" variant="outline">
+                    {locale === "ja" ? "削除" : "Remove"}
+                  </Button>
+                </form>
               </div>
             ))}
           </div>
@@ -196,7 +400,9 @@ export default async function TrainerDashboardPage({ params }: { params: Promise
       <Card>
         <CardHeader>
           <CardTitle>{copy.premiumContentManageTitle}</CardTitle>
-          <CardDescription>{copy.premiumContentManageDescription}</CardDescription>
+          <CardDescription>
+            {copy.premiumContentManageDescription}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Link href={`/${locale}/dashboard/trainer/content`}>
@@ -211,56 +417,195 @@ export default async function TrainerDashboardPage({ params }: { params: Promise
           <CardDescription>{copy.sessionManageDescription}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <form action={saveSessionOffering.bind(null, locale)} className="grid gap-3 md:grid-cols-2">
+          <form
+            action={saveSessionOffering.bind(null, locale)}
+            className="grid gap-3 md:grid-cols-2"
+          >
             <input type="hidden" name="offeringId" value="" />
-            <input name="titleEn" placeholder={copy.sessionTitleEn} className="rounded-md border px-3 py-2 text-sm" required />
-            <input name="titleJa" placeholder={copy.sessionTitleJa} className="rounded-md border px-3 py-2 text-sm" />
-            <input name="durationMinutes" type="number" min={15} step={15} placeholder={copy.sessionDurationMinutes} className="rounded-md border px-3 py-2 text-sm" required />
-            <input name="price" type="number" min={1} step="0.01" placeholder={copy.sessionPrice} className="rounded-md border px-3 py-2 text-sm" required />
-            <select name="format" defaultValue="online" className="rounded-md border px-3 py-2 text-sm">
+            <input
+              name="titleEn"
+              placeholder={copy.sessionTitleEn}
+              className="rounded-md border px-3 py-2 text-sm"
+              required
+            />
+            <input
+              name="titleJa"
+              placeholder={copy.sessionTitleJa}
+              className="rounded-md border px-3 py-2 text-sm"
+            />
+            <input
+              name="durationMinutes"
+              type="number"
+              min={15}
+              step={15}
+              placeholder={copy.sessionDurationMinutes}
+              className="rounded-md border px-3 py-2 text-sm"
+              required
+            />
+            <input
+              name="price"
+              type="number"
+              min={1}
+              step="0.01"
+              placeholder={copy.sessionPrice}
+              className="rounded-md border px-3 py-2 text-sm"
+              required
+            />
+            <select
+              name="format"
+              defaultValue="online"
+              className="rounded-md border px-3 py-2 text-sm"
+            >
               <option value="online">{copy.sessionFormatOnline}</option>
               <option value="in_person">{copy.sessionFormatInPerson}</option>
               <option value="hybrid">{copy.sessionFormatHybrid}</option>
             </select>
-            <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="isActive" defaultChecked />{copy.commonPublish}</label>
-            <textarea name="descriptionEn" placeholder={copy.sessionDescriptionEn} className="min-h-24 rounded-md border px-3 py-2 text-sm md:col-span-2" />
-            <textarea name="descriptionJa" placeholder={copy.sessionDescriptionJa} className="min-h-24 rounded-md border px-3 py-2 text-sm md:col-span-2" />
-            <Button type="submit" className="md:col-span-2 w-fit">{copy.sessionCreate}</Button>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="isActive" defaultChecked />
+              {copy.commonPublish}
+            </label>
+            <textarea
+              name="descriptionEn"
+              placeholder={copy.sessionDescriptionEn}
+              className="min-h-24 rounded-md border px-3 py-2 text-sm md:col-span-2"
+            />
+            <textarea
+              name="descriptionJa"
+              placeholder={copy.sessionDescriptionJa}
+              className="min-h-24 rounded-md border px-3 py-2 text-sm md:col-span-2"
+            />
+            <Button type="submit" className="md:col-span-2 w-fit">
+              {copy.sessionCreate}
+            </Button>
           </form>
 
           <div className="space-y-3">
-            <p className="text-sm font-medium">{copy.sessionCurrentOfferings} ({activeOfferingCount})</p>
-            {offerings.length ? offerings.map((offering) => {
-              const localizedDescription = locale === "ja" ? offering.descriptionJa : offering.descriptionEn;
-              const fallbackDescription = locale === "ja" ? offering.descriptionEn : offering.descriptionJa;
-              const parsed = decodeDescription(localizedDescription);
-              const fallback = decodeDescription(fallbackDescription);
-              const format = parsed.format || fallback.format;
+            <p className="text-sm font-medium">
+              {copy.sessionCurrentOfferings} ({activeOfferingCount})
+            </p>
+            {offerings.length ? (
+              offerings.map((offering) => {
+                const localizedDescription =
+                  locale === "ja"
+                    ? offering.descriptionJa
+                    : offering.descriptionEn;
+                const fallbackDescription =
+                  locale === "ja"
+                    ? offering.descriptionEn
+                    : offering.descriptionJa;
+                const parsed = decodeDescription(localizedDescription);
+                const fallback = decodeDescription(fallbackDescription);
+                const format = parsed.format || fallback.format;
 
-              return (
-                <details key={offering.id} className="rounded-md border border-blue-100 p-3">
-                  <summary className="cursor-pointer text-sm font-medium">
-                    {(locale === "ja" ? offering.titleJa : offering.titleEn) || offering.titleEn} · {offering.durationMinutes}m · {asMoney(Number(offering.price), locale)} · {format}
-                  </summary>
-                  <form action={saveSessionOffering.bind(null, locale)} className="mt-3 grid gap-3 md:grid-cols-2">
-                    <input type="hidden" name="offeringId" value={offering.id} />
-                    <input name="titleEn" defaultValue={offering.titleEn} placeholder={copy.sessionTitleEn} className="rounded-md border px-3 py-2 text-sm" required />
-                    <input name="titleJa" defaultValue={offering.titleJa ?? ""} placeholder={copy.sessionTitleJa} className="rounded-md border px-3 py-2 text-sm" />
-                    <input name="durationMinutes" type="number" min={15} step={15} defaultValue={offering.durationMinutes} placeholder={copy.sessionDurationMinutes} className="rounded-md border px-3 py-2 text-sm" required />
-                    <input name="price" type="number" min={1} step="0.01" defaultValue={offering.price.toString()} placeholder={copy.sessionPrice} className="rounded-md border px-3 py-2 text-sm" required />
-                    <select name="format" defaultValue={format} className="rounded-md border px-3 py-2 text-sm">
-                      <option value="online">{copy.sessionFormatOnline}</option>
-                      <option value="in_person">{copy.sessionFormatInPerson}</option>
-                      <option value="hybrid">{copy.sessionFormatHybrid}</option>
-                    </select>
-                    <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="isActive" defaultChecked={offering.isActive} />{copy.commonPublish}</label>
-                    <textarea name="descriptionEn" defaultValue={decodeDescription(offering.descriptionEn).description} placeholder={copy.sessionDescriptionEn} className="min-h-24 rounded-md border px-3 py-2 text-sm md:col-span-2" />
-                    <textarea name="descriptionJa" defaultValue={decodeDescription(offering.descriptionJa).description} placeholder={copy.sessionDescriptionJa} className="min-h-24 rounded-md border px-3 py-2 text-sm md:col-span-2" />
-                    <Button type="submit" variant="outline" className="md:col-span-2 w-fit">{copy.sessionSave}</Button>
-                  </form>
-                </details>
-              );
-            }) : <p className="text-sm text-muted-foreground">{copy.sessionNoOfferingsYet}</p>}
+                return (
+                  <details
+                    key={offering.id}
+                    className="rounded-md border border-blue-100 p-3"
+                  >
+                    <summary className="cursor-pointer text-sm font-medium">
+                      {(locale === "ja"
+                        ? offering.titleJa
+                        : offering.titleEn) || offering.titleEn}{" "}
+                      · {offering.durationMinutes}m ·{" "}
+                      {asMoney(Number(offering.price), locale)} · {format}
+                    </summary>
+                    <form
+                      action={saveSessionOffering.bind(null, locale)}
+                      className="mt-3 grid gap-3 md:grid-cols-2"
+                    >
+                      <input
+                        type="hidden"
+                        name="offeringId"
+                        value={offering.id}
+                      />
+                      <input
+                        name="titleEn"
+                        defaultValue={offering.titleEn}
+                        placeholder={copy.sessionTitleEn}
+                        className="rounded-md border px-3 py-2 text-sm"
+                        required
+                      />
+                      <input
+                        name="titleJa"
+                        defaultValue={offering.titleJa ?? ""}
+                        placeholder={copy.sessionTitleJa}
+                        className="rounded-md border px-3 py-2 text-sm"
+                      />
+                      <input
+                        name="durationMinutes"
+                        type="number"
+                        min={15}
+                        step={15}
+                        defaultValue={offering.durationMinutes}
+                        placeholder={copy.sessionDurationMinutes}
+                        className="rounded-md border px-3 py-2 text-sm"
+                        required
+                      />
+                      <input
+                        name="price"
+                        type="number"
+                        min={1}
+                        step="0.01"
+                        defaultValue={offering.price.toString()}
+                        placeholder={copy.sessionPrice}
+                        className="rounded-md border px-3 py-2 text-sm"
+                        required
+                      />
+                      <select
+                        name="format"
+                        defaultValue={format}
+                        className="rounded-md border px-3 py-2 text-sm"
+                      >
+                        <option value="online">
+                          {copy.sessionFormatOnline}
+                        </option>
+                        <option value="in_person">
+                          {copy.sessionFormatInPerson}
+                        </option>
+                        <option value="hybrid">
+                          {copy.sessionFormatHybrid}
+                        </option>
+                      </select>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          name="isActive"
+                          defaultChecked={offering.isActive}
+                        />
+                        {copy.commonPublish}
+                      </label>
+                      <textarea
+                        name="descriptionEn"
+                        defaultValue={
+                          decodeDescription(offering.descriptionEn).description
+                        }
+                        placeholder={copy.sessionDescriptionEn}
+                        className="min-h-24 rounded-md border px-3 py-2 text-sm md:col-span-2"
+                      />
+                      <textarea
+                        name="descriptionJa"
+                        defaultValue={
+                          decodeDescription(offering.descriptionJa).description
+                        }
+                        placeholder={copy.sessionDescriptionJa}
+                        className="min-h-24 rounded-md border px-3 py-2 text-sm md:col-span-2"
+                      />
+                      <Button
+                        type="submit"
+                        variant="outline"
+                        className="md:col-span-2 w-fit"
+                      >
+                        {copy.sessionSave}
+                      </Button>
+                    </form>
+                  </details>
+                );
+              })
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {copy.sessionNoOfferingsYet}
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -291,30 +636,70 @@ export default async function TrainerDashboardPage({ params }: { params: Promise
       <Card>
         <CardHeader>
           <CardTitle>{copy.sessionTrainerBookingsTitle}</CardTitle>
-          <CardDescription>{copy.sessionTrainerBookingsDescription}</CardDescription>
+          <CardDescription>
+            {copy.sessionTrainerBookingsDescription}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
-          {bookings.length ? bookings.map((booking) => (
-            <div key={booking.id} className="rounded-md border border-blue-100 p-3 text-sm">
-              <p className="font-semibold">{booking.sessionOffering.titleEn}</p>
-              <p className="text-muted-foreground">
-                {(booking.client.profile?.displayName || booking.client.email || "Client")} · {new Intl.DateTimeFormat(locale === "ja" ? "ja-JP" : "en-US", {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                }).format(booking.startsAt)}
-              </p>
-              <form action={updateBookingStatus.bind(null, locale)} className="mt-2 flex flex-wrap items-center gap-2">
-                <input type="hidden" name="bookingId" value={booking.id} />
-                <select name="status" defaultValue={booking.status} className="rounded-md border px-2 py-1">
-                  <option value="PENDING">{copy.sessionStatusPending}</option>
-                  <option value="CONFIRMED">{copy.sessionStatusConfirmed}</option>
-                  <option value="COMPLETED">{copy.sessionStatusCompleted}</option>
-                  <option value="CANCELED">{copy.sessionStatusCanceled}</option>
-                </select>
-                <Button type="submit" size="sm" variant="outline">{copy.commonUpdate}</Button>
-              </form>
-            </div>
-          )) : <p className="text-sm text-muted-foreground">{copy.sessionBookingNoHistory}</p>}
+          {bookings.length ? (
+            bookings.map((booking) => (
+              <div
+                key={booking.id}
+                className="rounded-md border border-blue-100 p-3 text-sm"
+              >
+                <Link
+                  className="font-semibold text-blue-700 underline"
+                  href={`/${locale}/dashboard/bookings/${booking.id}`}
+                >
+                  {booking.sessionOffering.titleEn}
+                </Link>
+                <p className="text-muted-foreground">
+                  {booking.client.profile?.displayName ||
+                    booking.client.email ||
+                    "Client"}{" "}
+                  ·{" "}
+                  {new Intl.DateTimeFormat(
+                    locale === "ja" ? "ja-JP" : "en-US",
+                    {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    },
+                  ).format(booking.startsAt)}
+                </p>
+                <form
+                  action={updateBookingStatus.bind(null, locale)}
+                  className="mt-2 flex flex-wrap items-center gap-2"
+                >
+                  <input type="hidden" name="bookingId" value={booking.id} />
+                  <select
+                    name="status"
+                    defaultValue={booking.status}
+                    className="rounded-md border px-2 py-1"
+                  >
+                    <option value="PENDING" disabled>
+                      {copy.sessionStatusPending}
+                    </option>
+                    <option value="CONFIRMED" disabled>
+                      {copy.sessionStatusConfirmed}
+                    </option>
+                    <option value="COMPLETED" disabled>
+                      {copy.sessionStatusCompleted}
+                    </option>
+                    <option value="CANCELED">
+                      {copy.sessionStatusCanceled}
+                    </option>
+                  </select>
+                  <Button type="submit" size="sm" variant="outline">
+                    {copy.commonUpdate}
+                  </Button>
+                </form>
+              </div>
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {copy.sessionBookingNoHistory}
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -343,13 +728,18 @@ export default async function TrainerDashboardPage({ params }: { params: Promise
           shortBioJa: trainerProfile?.shortBioJa ?? profile?.bioJa ?? "",
           longBio: trainerProfile?.longBio ?? "",
           longBioJa: trainerProfile?.longBioJa ?? "",
-          categories: categories.map((category: { labelEn: string }) => category.labelEn),
+          categories: categories.map(
+            (category: { labelEn: string }) => category.labelEn,
+          ),
           languages: toStringArray(trainerProfile?.languages),
           achievements: toStringArray(trainerProfile?.achievements),
           certifications: toStringArray(trainerProfile?.certifications),
           coachingFormats: toStringArray(trainerProfile?.coachingFormats),
           socialWebsite: toSocialValue(trainerProfile?.socialLinks, "website"),
-          socialInstagram: toSocialValue(trainerProfile?.socialLinks, "instagram"),
+          socialInstagram: toSocialValue(
+            trainerProfile?.socialLinks,
+            "instagram",
+          ),
           socialX: toSocialValue(trainerProfile?.socialLinks, "x"),
           socialYoutube: toSocialValue(trainerProfile?.socialLinks, "youtube"),
           isPublished: trainerProfile?.isPublished ?? false,

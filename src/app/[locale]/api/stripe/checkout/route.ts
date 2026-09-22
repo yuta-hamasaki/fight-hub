@@ -1,113 +1,42 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-
-import { platformFeePercent } from "@/lib/billing/fees";
 import { prisma } from "@/lib/prisma";
-import { isStripeOnboardingComplete } from "@/lib/stripe/connect";
-import { getStripeClient } from "@/lib/stripe";
-
+import { getAppBaseUrl } from "@/lib/stripe";
+import { beginSubscription } from "@/lib/marketplace/subscription-checkout";
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ locale: string }> },
 ) {
   const { locale } = await params;
+  return NextResponse.redirect(new URL(`/${locale}/trainers`, request.url));
+}
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ locale: string }> },
+) {
+  const { locale } = await params,
+    base = getAppBaseUrl();
+  if (
+    !["ja", "en"].includes(locale) ||
+    request.headers.get("origin") !== new URL(base).origin
+  )
+    return new Response("Forbidden", { status: 403 });
   const { userId } = await auth();
-
-  if (!userId) {
-    return NextResponse.redirect(new URL(`/${locale}/sign-in`, request.url));
-  }
-
-  const url = new URL(request.url);
-  const planId = url.searchParams.get("planId");
-
-  if (!planId) {
-    return NextResponse.redirect(new URL(`/${locale}/trainers`, request.url));
-  }
-
-  const dbUser = await prisma.user.findUnique({
-    where: { clerkUserId: userId },
-    select: { id: true, role: true, email: true },
-  });
-
-  if (!dbUser || dbUser.role !== "CLIENT") {
-    return NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url));
-  }
-
-  const plan = await prisma.subscriptionPlan.findFirst({
-    where: {
-      id: planId,
-      isActive: true,
-      trainerProfile: { isPublished: true },
-    },
-    include: {
-      trainerProfile: {
-        include: {
-          user: {
-            include: {
-              stripeAccount: true,
-            },
-          },
-        },
-      },
-    },
-  });
-
-  if (!plan) {
-    return NextResponse.redirect(new URL(`/${locale}/trainers`, request.url));
-  }
-
-  const stripeAccount = plan.trainerProfile.user.stripeAccount;
-  if (!stripeAccount || !isStripeOnboardingComplete(stripeAccount)) {
+  if (!userId)
+    return NextResponse.redirect(new URL(`/${locale}/sign-in`, base), 303);
+  const user = await prisma.user.findUnique({ where: { clerkUserId: userId } });
+  if (!user || user.role !== "CLIENT")
+    return new Response("Forbidden", { status: 403 });
+  try {
+    const f = await request.formData();
     return NextResponse.redirect(
-      new URL(`/${locale}/trainers/${plan.trainerProfileId}?purchase=unavailable`, request.url),
+      await beginSubscription(user.id, String(f.get("planId") || ""), locale),
+      303,
+    );
+  } catch {
+    return NextResponse.redirect(
+      new URL(`/${locale}/dashboard/workspace?tab=billing&error=1`, base),
+      303,
     );
   }
-
-  const stripe = getStripeClient();
-  const amount = Math.round(Number(plan.priceMonthly) * 100);
-
-  const session = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    success_url: `${url.origin}/${locale}/dashboard/client?purchase=success`,
-    cancel_url: `${url.origin}/${locale}/trainers/${plan.trainerProfileId}?purchase=canceled`,
-    customer_email: dbUser.email ?? undefined,
-    metadata: {
-      dbUserId: dbUser.id,
-      subscriptionPlanId: plan.id,
-      trainerProfileId: plan.trainerProfileId,
-    },
-    subscription_data: {
-      transfer_data: {
-        destination: stripeAccount.stripeAccountId,
-      },
-      application_fee_percent: platformFeePercent(),
-      metadata: {
-        dbUserId: dbUser.id,
-        subscriptionPlanId: plan.id,
-        trainerProfileId: plan.trainerProfileId,
-      },
-    },
-    line_items: [
-      {
-        quantity: 1,
-        price_data: {
-          currency: plan.currency.toLowerCase(),
-          unit_amount: amount,
-          recurring: {
-            interval: "month",
-          },
-          product_data: {
-            name: plan.nameEn,
-            description: plan.descriptionEn ?? undefined,
-          },
-        },
-      },
-    ],
-  });
-
-  if (!session.url) {
-    return NextResponse.redirect(new URL(`/${locale}/trainers/${plan.trainerProfileId}`, request.url));
-  }
-
-  return NextResponse.redirect(session.url);
 }

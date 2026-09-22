@@ -17,7 +17,12 @@ export function localizedPath(locale: Locale, path: string) {
   return `/${locale}${path}`;
 }
 
-export function dashboardPathForRole(locale: Locale, role: DbRole | "CLIENT" | "TRAINER") {
+export function dashboardPathForRole(
+  locale: Locale,
+  role: DbRole | "CLIENT" | "TRAINER",
+) {
+  if (role === "ADMIN")
+    return localizedPath(locale, "/dashboard/workspace?tab=support");
   return role === "TRAINER"
     ? localizedPath(locale, "/dashboard/trainer")
     : localizedPath(locale, "/dashboard/client");
