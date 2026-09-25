@@ -1,12 +1,21 @@
 import type { Metadata } from "next";
 
 import { TrainerDirectoryClient } from "@/components/trainers/trainer-directory-client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+} from "@/components/ui/card";
 import type { Locale } from "@/lib/constants/locales";
 import { dictionary } from "@/lib/i18n/dictionary";
 import { getTrainerDirectory } from "@/lib/trainers";
 
-export async function generateMetadata({ params }: { params: Promise<{ locale: Locale }> }): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: Locale }>;
+}): Promise<Metadata> {
   const { locale } = await params;
   const copy = dictionary[locale];
 
@@ -18,31 +27,37 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: L
 
 export default async function TrainerDirectoryPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: Locale }>;
+  searchParams: Promise<{ q?: string }>;
 }) {
   const { locale } = await params;
   const copy = dictionary[locale];
+  const query = await searchParams;
   const trainers = await getTrainerDirectory(locale);
-  const categories = Array.from(new Set(trainers.flatMap((trainer) => trainer.categories))).sort((a, b) =>
-    a.localeCompare(b),
-  );
+  const categories = Array.from(
+    new Set(trainers.flatMap((trainer) => trainer.categories)),
+  ).sort((a, b) => a.localeCompare(b));
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>{copy.trainerDiscoveryTitle}</CardTitle>
+          <h1 className="text-3xl font-bold">{copy.trainerDiscoveryTitle}</h1>
           <CardDescription>{copy.trainerDiscoveryDescription}</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">{copy.trainerDiscoveryBody}</p>
+          <p className="text-sm text-muted-foreground">
+            {copy.trainerDiscoveryBody}
+          </p>
         </CardContent>
       </Card>
 
       <TrainerDirectoryClient
         locale={locale}
         trainers={trainers}
+        initialSearch={query.q ?? ""}
         categories={categories}
         copy={{
           searchLabel: copy.trainerSearchLabel,

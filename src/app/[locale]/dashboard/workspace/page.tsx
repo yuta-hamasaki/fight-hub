@@ -1,4 +1,4 @@
-import { statusLabel } from "@/lib/marketplace/labels";
+import { StatusBadge } from "@/components/marketplace/status-badge";
 import Link from "next/link";
 import { requireDbUser } from "@/lib/auth/session";
 import type { Locale } from "@/lib/constants/locales";
@@ -122,17 +122,19 @@ export default async function Workspace({
     ]);
     content = (
       <Panel title={ja ? "予約一覧" : "Bookings"}>
-        <nav className="flex gap-4">
+        <nav
+          className="flex gap-2 rounded-xl bg-slate-100 p-1"
+          aria-label={ja ? "予約の絞り込み" : "Booking filter"}
+        >
           {[
             ["upcoming", "今後", "Upcoming"],
             ["past", "過去", "Past"],
             ["all", "すべて", "All"],
           ].map(([key, j, e]) => (
             <Link
-              className={
-                filter === key ? "font-bold text-blue-700" : "underline"
-              }
+              className={`rounded-lg px-4 py-2 text-sm ${filter === key ? "bg-white font-bold text-blue-800 shadow-sm" : "text-slate-600 hover:bg-white"}`}
               key={key}
+              aria-current={filter === key ? "page" : undefined}
               href={`${base}?tab=bookings&filter=${key}`}
             >
               {ja ? j : e}
@@ -160,7 +162,7 @@ export default async function Workspace({
                 : b.trainer.profile?.displayName}
             </p>
             <p className="text-sm">
-              {statusLabel(b.status, locale)}{" "}
+              <StatusBadge status={b.status} locale={locale} />{" "}
               {b.proposedStartsAt
                 ? ja
                   ? "· 日程変更の提案あり"
@@ -345,7 +347,7 @@ export default async function Workspace({
                 : p.subscriptionPlan.trainerProfile.user.profile?.displayName}
             </p>
             <p>
-              {statusLabel(p.status, locale)} ·{" "}
+              <StatusBadge status={p.status} locale={locale} /> ·{" "}
               {Number(p.priceMonthly ?? p.subscriptionPlan.priceMonthly)}{" "}
               {p.currency} / {ja ? "月" : "month"}
             </p>
@@ -503,7 +505,8 @@ export default async function Workspace({
           <article key={t.id} className="space-y-3 rounded-lg border p-4">
             <h3 className="font-bold">{t.subject}</h3>
             <p className="text-xs">
-              {t.id} · {statusLabel(t.status, locale)} · {date(t.createdAt)}
+              {t.id} · <StatusBadge status={t.status} locale={locale} /> ·{" "}
+              {date(t.createdAt)}
             </p>
             <p className="whitespace-pre-wrap">{t.body}</p>
             {t.bookingId && (
@@ -548,27 +551,14 @@ export default async function Workspace({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">
-          {ja ? "マイページ" : "My workspace"}
+          {tabs.find(([key]) => key === tab)?.[ja ? 1 : 2] ??
+            (ja ? "マイページ" : "My workspace")}
         </h1>
         <Link className="text-blue-700 underline" href={`/${locale}/dashboard`}>
           {ja ? "ダッシュボード" : "Dashboard"}
         </Link>
       </div>
-      <nav
-        className="flex flex-wrap gap-2"
-        aria-label={ja ? "マイページメニュー" : "Workspace menu"}
-      >
-        {tabs.map(([key, j, e]) => (
-          <Link
-            key={key}
-            href={`${base}?tab=${key}`}
-            aria-current={tab === key ? "page" : undefined}
-            className={`rounded-lg border px-3 py-2 text-sm ${tab === key ? "bg-blue-700 text-white" : "bg-white"}`}
-          >
-            {ja ? j : e}
-          </Link>
-        ))}
-      </nav>
+
       <Notice locale={locale} error={q.error} saved={q.saved} />
       {content}
     </div>

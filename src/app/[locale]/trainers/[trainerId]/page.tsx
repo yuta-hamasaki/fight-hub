@@ -317,7 +317,7 @@ export default async function TrainerDetailPage({
       </section>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
-        <main className="space-y-10">
+        <div className="min-w-0 space-y-10">
           <section className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8">
             <h2 className="text-xl font-black sm:text-2xl">{ui.about}</h2>
             <p className="mt-4 whitespace-pre-line text-[15px] leading-7 text-slate-600">
@@ -607,7 +607,7 @@ export default async function TrainerDetailPage({
               </div>
             ) : null}
           </section>
-        </main>
+        </div>
 
         <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
           {canPurchase && (

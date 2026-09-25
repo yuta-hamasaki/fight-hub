@@ -1,7 +1,13 @@
 import { redirect } from "next/navigation";
 import Image from "next/image";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { requireDbUser } from "@/lib/auth/session";
 import type { Locale } from "@/lib/constants/locales";
 import { dictionary } from "@/lib/i18n/dictionary";
@@ -60,22 +66,35 @@ export default async function ClientPremiumContentDetailPage({
       <Card>
         <CardHeader>
           <CardTitle>{copy.subscriptionPremiumLocked}</CardTitle>
-          <CardDescription>{copy.subscriptionPremiumLockedBody}</CardDescription>
+          <CardDescription>
+            {copy.subscriptionPremiumLockedBody}
+          </CardDescription>
         </CardHeader>
       </Card>
     );
   }
 
-  const title = locale === "ja" ? content.titleJa || content.titleEn : content.titleEn || content.titleJa || "";
-  const summary = locale === "ja" ? content.summaryJa || content.summaryEn : content.summaryEn || content.summaryJa || "";
-  const body = locale === "ja" ? content.bodyJa || content.bodyEn : content.bodyEn || content.bodyJa || "";
+  const title =
+    locale === "ja"
+      ? content.titleJa || content.titleEn
+      : content.titleEn || content.titleJa || "";
+  const summary =
+    locale === "ja"
+      ? content.summaryJa || content.summaryEn
+      : content.summaryEn || content.summaryJa || "";
+  const body =
+    locale === "ja"
+      ? content.bodyJa || content.bodyEn
+      : content.bodyEn || content.bodyJa || "";
 
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>{summary || copy.premiumContentNoSummary}</CardDescription>
+          <h1 className="text-2xl font-bold sm:text-3xl">{title}</h1>
+          <CardDescription>
+            {summary || copy.premiumContentNoSummary}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {content.thumbnailUrl ? (
@@ -89,11 +108,18 @@ export default async function ClientPremiumContentDetailPage({
             />
           ) : null}
           {content.contentType === "YOUTUBE" && content.youtubeUrl ? (
-            <a href={content.youtubeUrl} target="_blank" rel="noreferrer" className="text-sm font-medium underline">
+            <a
+              href={content.youtubeUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm font-medium underline"
+            >
               {copy.premiumContentOpenYoutube}
             </a>
           ) : null}
-          <p className="whitespace-pre-wrap text-sm text-muted-foreground">{body}</p>
+          <p className="whitespace-pre-wrap text-base leading-8 text-slate-700">
+            {body}
+          </p>
         </CardContent>
       </Card>
     </div>

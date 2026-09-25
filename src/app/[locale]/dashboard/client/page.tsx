@@ -55,25 +55,6 @@ export default async function ClientDashboardPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4">
-        {[
-          ["bookings", "予約管理", "Bookings"],
-          ["messages", "メッセージ", "Messages"],
-          ["coaching", "指導・課題", "Coaching"],
-          ["notifications", "通知", "Notifications"],
-          ["billing", "契約管理", "Memberships"],
-          ["passes", "回数券", "Passes"],
-          ["support", "サポート", "Support"],
-        ].map(([tab, ja, en]) => (
-          <Link
-            key={tab}
-            className="font-medium text-blue-700 underline"
-            href={`/${locale}/dashboard/workspace?tab=${tab}`}
-          >
-            {locale === "ja" ? ja : en}
-          </Link>
-        ))}
-      </div>
       {result.booking === "success" || result.purchase === "success" ? (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">
           {locale === "ja"
@@ -83,7 +64,9 @@ export default async function ClientDashboardPage({
       ) : null}
       <Card className="border-blue-100 bg-white">
         <CardHeader>
-          <CardTitle>{copy.clientDashboardTitle}</CardTitle>
+          <h1 className="text-2xl font-bold sm:text-3xl">
+            {copy.clientDashboardTitle}
+          </h1>
           <CardDescription>{copy.clientDashboardDescription}</CardDescription>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">

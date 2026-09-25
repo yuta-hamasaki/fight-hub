@@ -16,5 +16,7 @@ export default async function LocaleLayout({
     notFound();
   }
 
-  return <AppShell locale={(locale as Locale) || defaultLocale}>{children}</AppShell>;
+  return (
+    <AppShell locale={(locale as Locale) || defaultLocale}>{children}</AppShell>
+  );
 }

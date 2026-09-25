@@ -5,7 +5,6 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { requireDbUser } from "@/lib/auth/session";
 import type { Locale } from "@/lib/constants/locales";
@@ -51,16 +50,15 @@ const COPY: Record<Locale, Copy> = {
       "Open the secure Stripe Express dashboard to update your bank account, payout schedule, and identity details.",
   },
   ja: {
-    title: "Stripe Connect登録",
+    title: "支払いの受け取り設定",
     description: "支払い受取のためにStripeアカウントを連携します。",
-    statusLabel: "オンボーディング状況",
+    statusLabel: "登録状況",
     statusNotStarted: "未開始",
     statusPending: "手続き中",
     statusCompleted: "完了",
     completedMessage:
       "Stripe登録が完了しました。支払いを受け取れるようになりました。",
-    pendingMessage:
-      "Stripeのオンボーディングは進行中です。続けて完了してください。",
+    pendingMessage: "Stripeの登録手続きは進行中です。続けて完了してください。",
     startCta: "Stripe登録を開始",
     continueCta: "Stripe登録を続ける",
     loading: "リダイレクト中...",
@@ -128,7 +126,7 @@ export default async function TrainerStripePage({
     <div className="mx-auto max-w-2xl space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>{copy.title}</CardTitle>
+          <h1 className="text-2xl font-bold sm:text-3xl">{copy.title}</h1>
           <CardDescription>{copy.description}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

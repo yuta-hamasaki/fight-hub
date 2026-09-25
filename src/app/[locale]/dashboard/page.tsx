@@ -11,6 +11,5 @@ export default async function DashboardIndexPage({
   const { locale } = await params;
   const user = await requireDbUser(locale);
 
-
   redirect(dashboardPathForRole(locale, user.role));
 }

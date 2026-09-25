@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { TrainerProfileForm } from "@/components/forms/trainer-profile/trainer-profile-form";
 import { SubscriptionPlanManager } from "@/components/forms/subscription-plan/subscription-plan-manager";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -156,28 +156,32 @@ export default async function TrainerDashboardPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4">
+      <nav
+        aria-label={
+          locale === "ja" ? "このページの設定" : "Settings on this page"
+        }
+        className="flex flex-wrap gap-2 rounded-2xl border bg-white p-3"
+      >
         {[
-          ["bookings", "予約管理", "Bookings"],
-          ["messages", "メッセージ", "Messages"],
-          ["coaching", "指導・課題", "Coaching"],
-          ["notifications", "通知", "Notifications"],
-          ["billing", "契約管理", "Memberships"],
-          ["passes", "回数券", "Passes"],
-          ["support", "サポート", "Support"],
-        ].map(([tab, ja, en]) => (
-          <Link
-            key={tab}
-            className="font-medium text-blue-700 underline"
-            href={`/${locale}/dashboard/workspace?tab=${tab}`}
+          ["sessions", "レッスン", "Sessions"],
+          ["plans", "月額プラン", "Plans"],
+          ["profile", "プロフィール", "Profile"],
+        ].map(([id, ja, en]) => (
+          <a
+            key={id}
+            href={`#${id}`}
+            className="rounded-lg px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50"
           >
             {locale === "ja" ? ja : en}
-          </Link>
+          </a>
         ))}
-      </div>
+      </nav>
+
       <Card className="border-blue-100 bg-white">
         <CardHeader>
-          <CardTitle>{copy.trainerDashboardTitle}</CardTitle>
+          <h1 className="text-2xl font-bold sm:text-3xl">
+            {copy.trainerDashboardTitle}
+          </h1>
           <CardDescription>{copy.trainerDashboardDescription}</CardDescription>
         </CardHeader>
       </Card>
@@ -308,17 +312,19 @@ export default async function TrainerDashboardPage({
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
-          <Link href={`/${locale}/dashboard/trainer/revenue`}>
-            <Button>
-              {locale === "ja"
-                ? "収益ダッシュボードを開く"
-                : "Open revenue dashboard"}
-            </Button>
+          <Link
+            href={`/${locale}/dashboard/trainer/revenue`}
+            className={buttonVariants({ variant: "default" })}
+          >
+            {locale === "ja"
+              ? "収益ダッシュボードを開く"
+              : "Open revenue dashboard"}
           </Link>
-          <Link href={`/${locale}/trainer/dashboard/stripe`}>
-            <Button variant="outline">
-              {locale === "ja" ? "Stripe設定を開く" : "Open Stripe settings"}
-            </Button>
+          <Link
+            href={`/${locale}/trainer/dashboard/stripe`}
+            className={buttonVariants({ variant: "outline" })}
+          >
+            {locale === "ja" ? "Stripe設定を開く" : "Open Stripe settings"}
           </Link>
         </CardContent>
       </Card>
@@ -339,31 +345,44 @@ export default async function TrainerDashboardPage({
             action={saveAvailability.bind(null, locale)}
             className="grid gap-2 sm:grid-cols-4"
           >
-            <select
-              name="dayOfWeek"
-              className="rounded-md border px-3 py-2 text-sm"
-            >
-              {(locale === "ja"
-                ? ["日", "月", "火", "水", "木", "金", "土"]
-                : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-              ).map((day, index) => (
-                <option key={day} value={index}>
-                  {day}
-                </option>
-              ))}
-            </select>
-            <input
-              name="startTime"
-              type="time"
-              required
-              className="rounded-md border px-3 py-2 text-sm"
-            />
-            <input
-              name="endTime"
-              type="time"
-              required
-              className="rounded-md border px-3 py-2 text-sm"
-            />
+            <label className="grid gap-2 text-sm font-medium">
+              <span>{locale === "ja" ? "曜日（UTC）" : "Day (UTC)"}</span>
+              <select
+                name="dayOfWeek"
+                className="rounded-md border px-3 py-2 text-sm"
+              >
+                {(locale === "ja"
+                  ? ["日", "月", "火", "水", "木", "金", "土"]
+                  : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+                ).map((day, index) => (
+                  <option key={day} value={index}>
+                    {day}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm font-medium">
+              <span>
+                {locale === "ja" ? "開始時刻（UTC）" : "Start time (UTC)"}
+              </span>
+              <input
+                name="startTime"
+                type="time"
+                required
+                className="rounded-md border px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-medium">
+              <span>
+                {locale === "ja" ? "終了時刻（UTC）" : "End time (UTC)"}
+              </span>
+              <input
+                name="endTime"
+                type="time"
+                required
+                className="rounded-md border px-3 py-2 text-sm"
+              />
+            </label>
             <Button type="submit">
               {locale === "ja" ? "受付時間を追加" : "Add hours"}
             </Button>
@@ -405,13 +424,16 @@ export default async function TrainerDashboardPage({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Link href={`/${locale}/dashboard/trainer/content`}>
-            <Button>{copy.premiumContentOpenManager}</Button>
+          <Link
+            href={`/${locale}/dashboard/trainer/content`}
+            className={buttonVariants({ variant: "default" })}
+          >
+            {copy.premiumContentOpenManager}
           </Link>
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="sessions">
         <CardHeader>
           <CardTitle>{copy.sessionManageTitle}</CardTitle>
           <CardDescription>{copy.sessionManageDescription}</CardDescription>
@@ -422,58 +444,94 @@ export default async function TrainerDashboardPage({
             className="grid gap-3 md:grid-cols-2"
           >
             <input type="hidden" name="offeringId" value="" />
-            <input
-              name="titleEn"
-              placeholder={copy.sessionTitleEn}
-              className="rounded-md border px-3 py-2 text-sm"
-              required
-            />
-            <input
-              name="titleJa"
-              placeholder={copy.sessionTitleJa}
-              className="rounded-md border px-3 py-2 text-sm"
-            />
-            <input
-              name="durationMinutes"
-              type="number"
-              min={15}
-              step={15}
-              placeholder={copy.sessionDurationMinutes}
-              className="rounded-md border px-3 py-2 text-sm"
-              required
-            />
-            <input
-              name="price"
-              type="number"
-              min={1}
-              step="0.01"
-              placeholder={copy.sessionPrice}
-              className="rounded-md border px-3 py-2 text-sm"
-              required
-            />
-            <select
-              name="format"
-              defaultValue="online"
-              className="rounded-md border px-3 py-2 text-sm"
-            >
-              <option value="online">{copy.sessionFormatOnline}</option>
-              <option value="in_person">{copy.sessionFormatInPerson}</option>
-              <option value="hybrid">{copy.sessionFormatHybrid}</option>
-            </select>
+            <label className="grid gap-2 text-sm font-medium">
+              <span>
+                {copy.sessionTitleEn}{" "}
+                <span className="text-red-700" aria-hidden="true">
+                  *
+                </span>
+              </span>
+              <input
+                name="titleEn"
+
+                className="rounded-md border px-3 py-2 text-sm"
+                required
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-medium">
+              <span>{copy.sessionTitleJa}</span>
+              <input
+                name="titleJa"
+
+                className="rounded-md border px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-medium">
+              <span>
+                {copy.sessionDurationMinutes}{" "}
+                <span className="text-red-700" aria-hidden="true">
+                  *
+                </span>
+              </span>
+              <input
+                name="durationMinutes"
+                type="number"
+                min={15}
+                step={15}
+
+                className="rounded-md border px-3 py-2 text-sm"
+                required
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-medium">
+              <span>
+                {copy.sessionPrice}{" "}
+                <span className="text-red-700" aria-hidden="true">
+                  *
+                </span>
+              </span>
+              <input
+                name="price"
+                type="number"
+                min={1}
+                step="0.01"
+
+                className="rounded-md border px-3 py-2 text-sm"
+                required
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-medium">
+              <span>{locale === "ja" ? "指導形式" : "Session format"}</span>
+              <select
+                name="format"
+                defaultValue="online"
+                className="rounded-md border px-3 py-2 text-sm"
+              >
+                <option value="online">{copy.sessionFormatOnline}</option>
+                <option value="in_person">{copy.sessionFormatInPerson}</option>
+                <option value="hybrid">{copy.sessionFormatHybrid}</option>
+              </select>
+            </label>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" name="isActive" defaultChecked />
               {copy.commonPublish}
             </label>
-            <textarea
-              name="descriptionEn"
-              placeholder={copy.sessionDescriptionEn}
-              className="min-h-24 rounded-md border px-3 py-2 text-sm md:col-span-2"
-            />
-            <textarea
-              name="descriptionJa"
-              placeholder={copy.sessionDescriptionJa}
-              className="min-h-24 rounded-md border px-3 py-2 text-sm md:col-span-2"
-            />
+            <label className="grid gap-2 text-sm font-medium md:col-span-2">
+              <span>{copy.sessionDescriptionEn}</span>
+              <textarea
+                name="descriptionEn"
+
+                className="min-h-24 rounded-md border px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-medium md:col-span-2">
+              <span>{copy.sessionDescriptionJa}</span>
+              <textarea
+                name="descriptionJa"
+
+                className="min-h-24 rounded-md border px-3 py-2 text-sm"
+              />
+            </label>
             <Button type="submit" className="md:col-span-2 w-fit">
               {copy.sessionCreate}
             </Button>
@@ -518,54 +576,86 @@ export default async function TrainerDashboardPage({
                         name="offeringId"
                         value={offering.id}
                       />
-                      <input
-                        name="titleEn"
-                        defaultValue={offering.titleEn}
-                        placeholder={copy.sessionTitleEn}
-                        className="rounded-md border px-3 py-2 text-sm"
-                        required
-                      />
-                      <input
-                        name="titleJa"
-                        defaultValue={offering.titleJa ?? ""}
-                        placeholder={copy.sessionTitleJa}
-                        className="rounded-md border px-3 py-2 text-sm"
-                      />
-                      <input
-                        name="durationMinutes"
-                        type="number"
-                        min={15}
-                        step={15}
-                        defaultValue={offering.durationMinutes}
-                        placeholder={copy.sessionDurationMinutes}
-                        className="rounded-md border px-3 py-2 text-sm"
-                        required
-                      />
-                      <input
-                        name="price"
-                        type="number"
-                        min={1}
-                        step="0.01"
-                        defaultValue={offering.price.toString()}
-                        placeholder={copy.sessionPrice}
-                        className="rounded-md border px-3 py-2 text-sm"
-                        required
-                      />
-                      <select
-                        name="format"
-                        defaultValue={format}
-                        className="rounded-md border px-3 py-2 text-sm"
-                      >
-                        <option value="online">
-                          {copy.sessionFormatOnline}
-                        </option>
-                        <option value="in_person">
-                          {copy.sessionFormatInPerson}
-                        </option>
-                        <option value="hybrid">
-                          {copy.sessionFormatHybrid}
-                        </option>
-                      </select>
+                      <label className="grid gap-2 text-sm font-medium">
+                        <span>
+                          {copy.sessionTitleEn}{" "}
+                          <span className="text-red-700" aria-hidden="true">
+                            *
+                          </span>
+                        </span>
+                        <input
+                          name="titleEn"
+                          defaultValue={offering.titleEn}
+
+                          className="rounded-md border px-3 py-2 text-sm"
+                          required
+                        />
+                      </label>
+                      <label className="grid gap-2 text-sm font-medium">
+                        <span>{copy.sessionTitleJa}</span>
+                        <input
+                          name="titleJa"
+                          defaultValue={offering.titleJa ?? ""}
+
+                          className="rounded-md border px-3 py-2 text-sm"
+                        />
+                      </label>
+                      <label className="grid gap-2 text-sm font-medium">
+                        <span>
+                          {copy.sessionDurationMinutes}{" "}
+                          <span className="text-red-700" aria-hidden="true">
+                            *
+                          </span>
+                        </span>
+                        <input
+                          name="durationMinutes"
+                          type="number"
+                          min={15}
+                          step={15}
+                          defaultValue={offering.durationMinutes}
+
+                          className="rounded-md border px-3 py-2 text-sm"
+                          required
+                        />
+                      </label>
+                      <label className="grid gap-2 text-sm font-medium">
+                        <span>
+                          {copy.sessionPrice}{" "}
+                          <span className="text-red-700" aria-hidden="true">
+                            *
+                          </span>
+                        </span>
+                        <input
+                          name="price"
+                          type="number"
+                          min={1}
+                          step="0.01"
+                          defaultValue={offering.price.toString()}
+
+                          className="rounded-md border px-3 py-2 text-sm"
+                          required
+                        />
+                      </label>
+                      <label className="grid gap-2 text-sm font-medium">
+                        <span>
+                          {locale === "ja" ? "指導形式" : "Session format"}
+                        </span>
+                        <select
+                          name="format"
+                          defaultValue={format}
+                          className="rounded-md border px-3 py-2 text-sm"
+                        >
+                          <option value="online">
+                            {copy.sessionFormatOnline}
+                          </option>
+                          <option value="in_person">
+                            {copy.sessionFormatInPerson}
+                          </option>
+                          <option value="hybrid">
+                            {copy.sessionFormatHybrid}
+                          </option>
+                        </select>
+                      </label>
                       <label className="flex items-center gap-2 text-sm">
                         <input
                           type="checkbox"
@@ -574,22 +664,30 @@ export default async function TrainerDashboardPage({
                         />
                         {copy.commonPublish}
                       </label>
-                      <textarea
-                        name="descriptionEn"
-                        defaultValue={
-                          decodeDescription(offering.descriptionEn).description
-                        }
-                        placeholder={copy.sessionDescriptionEn}
-                        className="min-h-24 rounded-md border px-3 py-2 text-sm md:col-span-2"
-                      />
-                      <textarea
-                        name="descriptionJa"
-                        defaultValue={
-                          decodeDescription(offering.descriptionJa).description
-                        }
-                        placeholder={copy.sessionDescriptionJa}
-                        className="min-h-24 rounded-md border px-3 py-2 text-sm md:col-span-2"
-                      />
+                      <label className="grid gap-2 text-sm font-medium md:col-span-2">
+                        <span>{copy.sessionDescriptionEn}</span>
+                        <textarea
+                          name="descriptionEn"
+                          defaultValue={
+                            decodeDescription(offering.descriptionEn)
+                              .description
+                          }
+
+                          className="min-h-24 rounded-md border px-3 py-2 text-sm"
+                        />
+                      </label>
+                      <label className="grid gap-2 text-sm font-medium md:col-span-2">
+                        <span>{copy.sessionDescriptionJa}</span>
+                        <textarea
+                          name="descriptionJa"
+                          defaultValue={
+                            decodeDescription(offering.descriptionJa)
+                              .description
+                          }
+
+                          className="min-h-24 rounded-md border px-3 py-2 text-sm"
+                        />
+                      </label>
                       <Button
                         type="submit"
                         variant="outline"
@@ -610,28 +708,30 @@ export default async function TrainerDashboardPage({
         </CardContent>
       </Card>
 
-      <SubscriptionPlanManager
-        locale={locale}
-        copy={{
-          title: copy.subscriptionManageTitle,
-          description: copy.subscriptionManageDescription,
-          save: copy.subscriptionSavePlan,
-          createNew: copy.subscriptionCreateNew,
-          active: copy.subscriptionStatusActive,
-          inactive: copy.subscriptionStatusInactive,
-          nameEn: copy.subscriptionNameEn,
-          nameJa: copy.subscriptionNameJa,
-          price: copy.subscriptionPriceMonthly,
-          descriptionEn: copy.subscriptionDescriptionEn,
-          descriptionJa: copy.subscriptionDescriptionJa,
-          publish: copy.subscriptionPublishLabel,
-          planList: copy.subscriptionCurrentPlans,
-        }}
-        plans={plans}
-        initialState={INITIAL_SUBSCRIPTION_PLAN_STATE}
-        action={saveSubscriptionPlan.bind(null, locale)}
-        onToggle={setPlanPublishStatus.bind(null, locale)}
-      />
+      <div id="plans">
+        <SubscriptionPlanManager
+          locale={locale}
+          copy={{
+            title: copy.subscriptionManageTitle,
+            description: copy.subscriptionManageDescription,
+            save: copy.subscriptionSavePlan,
+            createNew: copy.subscriptionCreateNew,
+            active: copy.subscriptionStatusActive,
+            inactive: copy.subscriptionStatusInactive,
+            nameEn: copy.subscriptionNameEn,
+            nameJa: copy.subscriptionNameJa,
+            price: copy.subscriptionPriceMonthly,
+            descriptionEn: copy.subscriptionDescriptionEn,
+            descriptionJa: copy.subscriptionDescriptionJa,
+            publish: copy.subscriptionPublishLabel,
+            planList: copy.subscriptionCurrentPlans,
+          }}
+          plans={plans}
+          initialState={INITIAL_SUBSCRIPTION_PLAN_STATE}
+          action={saveSubscriptionPlan.bind(null, locale)}
+          onToggle={setPlanPublishStatus.bind(null, locale)}
+        />
+      </div>
 
       <Card>
         <CardHeader>
@@ -671,24 +771,29 @@ export default async function TrainerDashboardPage({
                   className="mt-2 flex flex-wrap items-center gap-2"
                 >
                   <input type="hidden" name="bookingId" value={booking.id} />
-                  <select
-                    name="status"
-                    defaultValue={booking.status}
-                    className="rounded-md border px-2 py-1"
-                  >
-                    <option value="PENDING" disabled>
-                      {copy.sessionStatusPending}
-                    </option>
-                    <option value="CONFIRMED" disabled>
-                      {copy.sessionStatusConfirmed}
-                    </option>
-                    <option value="COMPLETED" disabled>
-                      {copy.sessionStatusCompleted}
-                    </option>
-                    <option value="CANCELED">
-                      {copy.sessionStatusCanceled}
-                    </option>
-                  </select>
+                  <label className="grid gap-2 text-sm font-medium">
+                    <span>
+                      {locale === "ja" ? "予約の状態" : "Booking status"}
+                    </span>
+                    <select
+                      name="status"
+                      defaultValue={booking.status}
+                      className="rounded-md border px-2 py-1"
+                    >
+                      <option value="PENDING" disabled>
+                        {copy.sessionStatusPending}
+                      </option>
+                      <option value="CONFIRMED" disabled>
+                        {copy.sessionStatusConfirmed}
+                      </option>
+                      <option value="COMPLETED" disabled>
+                        {copy.sessionStatusCompleted}
+                      </option>
+                      <option value="CANCELED">
+                        {copy.sessionStatusCanceled}
+                      </option>
+                    </select>
+                  </label>
                   <Button type="submit" size="sm" variant="outline">
                     {copy.commonUpdate}
                   </Button>
@@ -703,50 +808,58 @@ export default async function TrainerDashboardPage({
         </CardContent>
       </Card>
 
-      <TrainerProfileForm
-        locale={locale}
-        copy={{
-          title: copy.trainerProfileTitle,
-          description: copy.trainerProfileDescription,
-          save: copy.saveTrainerProfile,
-          saved: copy.trainerProfileSaved,
-          formTip: copy.trainerProfileFormTip,
-          basicInfo: copy.trainerProfileSectionBasic,
-          bios: copy.trainerProfileSectionBio,
-          categoriesAndLanguages: copy.trainerProfileSectionCategory,
-          credibility: copy.trainerProfileSectionCredibility,
-          coaching: copy.trainerProfileSectionCoaching,
-          socialLinks: copy.trainerProfileSectionSocial,
-          publishProfile: copy.trainerProfilePublishLabel,
-          publishProfileHelp: copy.trainerProfilePublishHelp,
-        }}
-        initialValues={{
-          displayName: profile?.displayName ?? "",
-          displayNameJa: profile?.displayNameJa ?? "",
-          profileImageUrl: trainerProfile?.profileImageUrl ?? "",
-          shortBio: trainerProfile?.shortBio ?? profile?.bio ?? "",
-          shortBioJa: trainerProfile?.shortBioJa ?? profile?.bioJa ?? "",
-          longBio: trainerProfile?.longBio ?? "",
-          longBioJa: trainerProfile?.longBioJa ?? "",
-          categories: categories.map(
-            (category: { labelEn: string }) => category.labelEn,
-          ),
-          languages: toStringArray(trainerProfile?.languages),
-          achievements: toStringArray(trainerProfile?.achievements),
-          certifications: toStringArray(trainerProfile?.certifications),
-          coachingFormats: toStringArray(trainerProfile?.coachingFormats),
-          socialWebsite: toSocialValue(trainerProfile?.socialLinks, "website"),
-          socialInstagram: toSocialValue(
-            trainerProfile?.socialLinks,
-            "instagram",
-          ),
-          socialX: toSocialValue(trainerProfile?.socialLinks, "x"),
-          socialYoutube: toSocialValue(trainerProfile?.socialLinks, "youtube"),
-          isPublished: trainerProfile?.isPublished ?? false,
-        }}
-        initialState={{ status: "idle", message: "", fieldErrors: {} }}
-        action={saveTrainerProfile.bind(null, locale)}
-      />
+      <div id="profile">
+        <TrainerProfileForm
+          locale={locale}
+          copy={{
+            title: copy.trainerProfileTitle,
+            description: copy.trainerProfileDescription,
+            save: copy.saveTrainerProfile,
+            saved: copy.trainerProfileSaved,
+            formTip: copy.trainerProfileFormTip,
+            basicInfo: copy.trainerProfileSectionBasic,
+            bios: copy.trainerProfileSectionBio,
+            categoriesAndLanguages: copy.trainerProfileSectionCategory,
+            credibility: copy.trainerProfileSectionCredibility,
+            coaching: copy.trainerProfileSectionCoaching,
+            socialLinks: copy.trainerProfileSectionSocial,
+            publishProfile: copy.trainerProfilePublishLabel,
+            publishProfileHelp: copy.trainerProfilePublishHelp,
+          }}
+          initialValues={{
+            displayName: profile?.displayName ?? "",
+            displayNameJa: profile?.displayNameJa ?? "",
+            profileImageUrl: trainerProfile?.profileImageUrl ?? "",
+            shortBio: trainerProfile?.shortBio ?? profile?.bio ?? "",
+            shortBioJa: trainerProfile?.shortBioJa ?? profile?.bioJa ?? "",
+            longBio: trainerProfile?.longBio ?? "",
+            longBioJa: trainerProfile?.longBioJa ?? "",
+            categories: categories.map(
+              (category: { labelEn: string }) => category.labelEn,
+            ),
+            languages: toStringArray(trainerProfile?.languages),
+            achievements: toStringArray(trainerProfile?.achievements),
+            certifications: toStringArray(trainerProfile?.certifications),
+            coachingFormats: toStringArray(trainerProfile?.coachingFormats),
+            socialWebsite: toSocialValue(
+              trainerProfile?.socialLinks,
+              "website",
+            ),
+            socialInstagram: toSocialValue(
+              trainerProfile?.socialLinks,
+              "instagram",
+            ),
+            socialX: toSocialValue(trainerProfile?.socialLinks, "x"),
+            socialYoutube: toSocialValue(
+              trainerProfile?.socialLinks,
+              "youtube",
+            ),
+            isPublished: trainerProfile?.isPublished ?? false,
+          }}
+          initialState={{ status: "idle", message: "", fieldErrors: {} }}
+          action={saveTrainerProfile.bind(null, locale)}
+        />
+      </div>
     </div>
   );
 }

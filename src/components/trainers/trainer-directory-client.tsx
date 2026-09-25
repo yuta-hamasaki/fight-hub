@@ -24,6 +24,7 @@ type TrainerDirectoryClientProps = {
   locale: Locale;
   trainers: TrainerListItem[];
   categories: string[];
+  initialSearch?: string;
   copy: {
     searchLabel: string;
     searchPlaceholder: string;
@@ -39,9 +40,10 @@ export function TrainerDirectoryClient({
   locale,
   trainers,
   categories,
+  initialSearch = "",
   copy,
 }: TrainerDirectoryClientProps) {
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [category, setCategory] = useState("all");
 
   const [language, setLanguage] = useState("");
@@ -110,7 +112,7 @@ export function TrainerDirectoryClient({
 
   return (
     <section className="space-y-6">
-      <div className="grid gap-4 rounded-xl border border-border p-4 md:grid-cols-2">
+      <div className="grid gap-5 rounded-2xl border border-border bg-white p-5 md:grid-cols-2">
         <label className="space-y-2 text-sm font-medium">
           <span>{copy.searchLabel}</span>
           <input
@@ -139,66 +141,92 @@ export function TrainerDirectoryClient({
         </label>
       </div>
 
-      <div className="grid gap-3 rounded-xl border p-4 sm:grid-cols-2 lg:grid-cols-5">
-        <label className="grid gap-1 text-sm">
-          {ja ? "対応言語" : "Language"}
-          <select
-            className="rounded-lg border p-2"
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-          >
-            <option value="">{ja ? "すべて" : "All"}</option>
-            {[...new Set(trainers.flatMap((t) => t.languages))]
-              .sort()
-              .map((l) => (
-                <option key={l}>{l}</option>
-              ))}
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm">
-          {ja ? "指導形式" : "Format"}
-          <select
-            className="rounded-lg border p-2"
-            value={format}
-            onChange={(e) => setFormat(e.target.value)}
-          >
-            <option value="">{ja ? "すべて" : "All"}</option>
-            <option value="online">{ja ? "オンライン" : "Online"}</option>
-            <option value="in_person">{ja ? "対面" : "In person"}</option>
-            <option value="hybrid">{ja ? "両方" : "Hybrid"}</option>
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm">
-          {ja ? "地域・駅名" : "Region / station"}
-          <input
-            className="rounded-lg border p-2"
-            value={region}
-            onChange={(e) => setRegion(e.target.value)}
-          />
-        </label>
-        <label className="grid gap-1 text-sm">
-          {ja ? "料金上限（円）" : "Maximum price (JPY)"}
-          <input
-            className="rounded-lg border p-2"
-            type="number"
-            min={0}
-            value={maxPrice}
-            onChange={(e) => setMaxPrice(e.target.value)}
-          />
-        </label>
-        <label className="grid gap-1 text-sm">
-          {ja ? "空きのある日" : "Available on"}
-          <input
-            className="rounded-lg border p-2"
-            type="date"
-            value={day}
-            onChange={(e) => {
-              setDay(e.target.value);
-              setAvailable(null);
-              setDateError(false);
-            }}
-          />
-        </label>
+      <details className="rounded-2xl border bg-white p-5">
+        <summary>{ja ? "条件を絞り込む" : "Refine your search"}</summary>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <label className="grid gap-1 text-sm">
+            {ja ? "対応言語" : "Language"}
+            <select
+              className="rounded-lg border p-2"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+            >
+              <option value="">{ja ? "すべて" : "All"}</option>
+              {[...new Set(trainers.flatMap((t) => t.languages))]
+                .sort()
+                .map((l) => (
+                  <option key={l}>{l}</option>
+                ))}
+            </select>
+          </label>
+          <label className="grid gap-1 text-sm">
+            {ja ? "指導形式" : "Format"}
+            <select
+              className="rounded-lg border p-2"
+              value={format}
+              onChange={(e) => setFormat(e.target.value)}
+            >
+              <option value="">{ja ? "すべて" : "All"}</option>
+              <option value="online">{ja ? "オンライン" : "Online"}</option>
+              <option value="in_person">{ja ? "対面" : "In person"}</option>
+              <option value="hybrid">{ja ? "両方" : "Hybrid"}</option>
+            </select>
+          </label>
+          <label className="grid gap-1 text-sm">
+            {ja ? "地域・駅名" : "Region / station"}
+            <input
+              className="rounded-lg border p-2"
+              value={region}
+              onChange={(e) => setRegion(e.target.value)}
+            />
+          </label>
+          <label className="grid gap-1 text-sm">
+            {ja ? "料金上限（円）" : "Maximum price (JPY)"}
+            <input
+              className="rounded-lg border p-2"
+              type="number"
+              min={0}
+              value={maxPrice}
+              onChange={(e) => setMaxPrice(e.target.value)}
+            />
+          </label>
+          <label className="grid gap-1 text-sm">
+            {ja ? "空きのある日" : "Available on"}
+            <input
+              className="rounded-lg border p-2"
+              type="date"
+              value={day}
+              onChange={(e) => {
+                setDay(e.target.value);
+                setAvailable(null);
+                setDateError(false);
+              }}
+            />
+          </label>
+        </div>
+      </details>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p role="status" className="font-semibold">
+          {filtered.length}
+          {ja ? "人のトレーナー" : " trainers"}
+        </p>
+        <button
+          type="button"
+          className="rounded-lg px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50"
+          onClick={() => {
+            setSearch("");
+            setCategory("all");
+            setLanguage("");
+            setFormat("");
+            setRegion("");
+            setMaxPrice("");
+            setDay("");
+            setAvailable(null);
+            setDateError(false);
+          }}
+        >
+          {ja ? "検索条件をリセット" : "Reset filters"}
+        </button>
       </div>
       {day && available === null && !dateError && (
         <p role="status">
