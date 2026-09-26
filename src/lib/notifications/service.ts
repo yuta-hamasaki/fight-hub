@@ -1,7 +1,7 @@
-import { Prisma } from "@prisma/client";
+// import { Prisma } from "@prisma/client";
 
 import type { Locale } from "@/lib/constants/locales";
-import { sendLineText } from "@/lib/line/messaging";
+// import { sendLineText } from "@/lib/line/messaging";
 import { prisma } from "@/lib/prisma";
 import { notificationMessages, type BookingMessageData } from "./messages";
 
@@ -41,41 +41,42 @@ async function deliver(
     },
     update: {},
   });
-  const connection = await prisma.lineConnection.findUnique({
-    where: { userId },
-  });
-  if (!connection?.notificationEnabled || !connection.friendStatus)
-    return "skipped" as const;
-
-  let log: { id: string };
-  try {
-    log = await prisma.notificationLog.create({
-      data: { userId, bookingId, type, channel: "LINE" },
-      select: { id: true },
-    });
-  } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
-    )
-      return "duplicate" as const;
-    throw error;
-  }
-  try {
-    await sendLineText(connection.lineUserId, text);
-    return "sent" as const;
-  } catch (error) {
-    await prisma.notificationLog
-      .delete({ where: { id: log.id } })
-      .catch(() => undefined);
-    console.error("LINE notification delivery failed", {
-      userId,
-      bookingId,
-      type,
-      error: error instanceof Error ? error.message : "unknown",
-    });
-    return "failed" as const;
-  }
+  // LINE deferred until a future release.
+  //   const connection = await prisma.lineConnection.findUnique({
+  //     where: { userId },
+  //   });
+  //   if (!connection?.notificationEnabled || !connection.friendStatus)
+  //     return "skipped" as const;
+  //
+  //   let log: { id: string };
+  //   try {
+  //     log = await prisma.notificationLog.create({
+  //       data: { userId, bookingId, type, channel: "LINE" },
+  //       select: { id: true },
+  //     });
+  //   } catch (error) {
+  //     if (
+  //       error instanceof Prisma.PrismaClientKnownRequestError &&
+  //       error.code === "P2002"
+  //     )
+  //       return "duplicate" as const;
+  //     throw error;
+  //   }
+  //   try {
+  //     await sendLineText(connection.lineUserId, text);
+  //     return "sent" as const;
+  //   } catch (error) {
+  //     await prisma.notificationLog
+  //       .delete({ where: { id: log.id } })
+  //       .catch(() => undefined);
+  //     console.error("LINE notification delivery failed", {
+  //       userId,
+  //       bookingId,
+  //       type,
+  //       error: error instanceof Error ? error.message : "unknown",
+  //     });
+  //     return "failed" as const;
+  //   }
 }
 
 async function bookingData(bookingId: string) {

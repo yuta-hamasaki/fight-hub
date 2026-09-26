@@ -15,7 +15,8 @@ import { requireDbUser } from "@/lib/auth/session";
 import type { Locale } from "@/lib/constants/locales";
 import { dictionary } from "@/lib/i18n/dictionary";
 import { prisma } from "@/lib/prisma";
-import { LineConnectionCard } from "@/components/line/line-connection-card";
+// LINE deferred until a future release.
+// import { LineConnectionCard } from "@/components/line/line-connection-card";
 
 import { saveTrainerProfile } from "./actions";
 import { saveSessionOffering, updateBookingStatus } from "./session-actions";
@@ -72,7 +73,7 @@ export default async function TrainerDashboardPage({
     contentCount,
     stripeAccount,
     availability,
-    lineConnection,
+    // lineConnection,
   ] = await Promise.all([
     prisma.profile.findUnique({ where: { userId: user.id } }),
     prisma.trainerProfile.findUnique({ where: { userId: user.id } }),
@@ -107,7 +108,7 @@ export default async function TrainerDashboardPage({
       where: { trainerId: user.id, isActive: true },
       orderBy: [{ dayOfWeek: "asc" }, { startMinute: "asc" }],
     }),
-    prisma.lineConnection.findUnique({ where: { userId: user.id } }),
+    // prisma.lineConnection.findUnique({ where: { userId: user.id } }),
   ]);
 
   const now = new Date();
@@ -186,6 +187,7 @@ export default async function TrainerDashboardPage({
         </CardHeader>
       </Card>
 
+      {/* LINE deferred until a future release.
       <LineConnectionCard
         locale={locale}
         role="trainer"
@@ -205,6 +207,7 @@ export default async function TrainerDashboardPage({
           disable: copy.lineDisable,
         }}
       />
+      */}
 
       <Link
         className="text-blue-700 underline"

@@ -1,5 +1,11 @@
 # LINE notification integration
 
+## Release status: disabled
+
+LINE is not currently public. Dashboard cards and queries, OAuth/connection handlers, and LINE delivery in both notification services are commented out. The three LINE API routes return 404, even when credentials are configured. In-app notifications and scheduled reminder processing remain active; database models and existing connections are preserved.
+
+To resume development, restore the commented code in the client/trainer dashboard pages, the three routes under `src/app/api/line/` (remove their temporary 404 handlers), and `src/lib/notifications/service.ts` and `src/lib/marketplace/notifications.ts`, including their imports. Uncomment the LINE variables in `.env.example`, configure actual credentials in the deployment, and restore the LINE delivery assertion in `src/lib/marketplace/notifications.test.ts`. The setup and behavior below describe the intended enabled integration.
+
 LINE is an optional notification channel attached to the existing Clerk-authenticated `User`. It does not replace Clerk and disconnecting it only removes `LineConnection`; bookings, subscriptions, and reviews remain unchanged.
 
 ## LINE Developers setup

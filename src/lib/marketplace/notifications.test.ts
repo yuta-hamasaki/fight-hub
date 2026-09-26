@@ -34,7 +34,7 @@ describe("in-app and LINE notifications", () => {
     expect(mocks.create).toHaveBeenCalledOnce();
     expect(mocks.send).not.toHaveBeenCalled();
   });
-  it("allows only the winner of a concurrent notification claim to send LINE", async () => {
+  it("deduplicates concurrent notifications without sending LINE while deferred", async () => {
     mocks.line.mockResolvedValue({
       notificationEnabled: true,
       friendStatus: true,
@@ -66,6 +66,9 @@ describe("in-app and LINE notifications", () => {
         "change:one",
       ),
     ]);
-    expect(mocks.send).toHaveBeenCalledOnce();
+    expect(claimed.size).toBe(1);
+    expect(mocks.line).not.toHaveBeenCalled();
+    expect(mocks.send).not.toHaveBeenCalled();
+    // Restore when LINE is released: expect(mocks.send).toHaveBeenCalledOnce();
   });
 });

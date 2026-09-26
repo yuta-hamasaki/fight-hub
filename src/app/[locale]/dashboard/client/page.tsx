@@ -16,7 +16,8 @@ import {
   getAccessiblePremiumPosts,
   getActiveSubscriptions,
 } from "@/lib/subscriptions";
-import { LineConnectionCard } from "@/components/line/line-connection-card";
+// LINE deferred until a future release.
+// import { LineConnectionCard } from "@/components/line/line-connection-card";
 
 export default async function ClientDashboardPage({
   params,
@@ -33,7 +34,7 @@ export default async function ClientDashboardPage({
   if (user.role !== "CLIENT") {
     redirect(`/${locale}/dashboard`);
   }
-  const [subscriptions, premiumPosts, bookings, lineConnection] =
+  const [subscriptions, premiumPosts, bookings /* , lineConnection */] =
     await Promise.all([
       getActiveSubscriptions(user.id, locale),
       getAccessiblePremiumPosts(user.id, locale),
@@ -46,7 +47,7 @@ export default async function ClientDashboardPage({
         orderBy: { startsAt: "desc" },
         take: 20,
       }),
-      prisma.lineConnection.findUnique({ where: { userId: user.id } }),
+      // prisma.lineConnection.findUnique({ where: { userId: user.id } }),
     ]);
 
   const bookingCount = await prisma.booking.count({
@@ -74,6 +75,7 @@ export default async function ClientDashboardPage({
         </CardContent>
       </Card>
 
+      {/* LINE deferred until a future release.
       <LineConnectionCard
         locale={locale}
         role="client"
@@ -93,6 +95,7 @@ export default async function ClientDashboardPage({
           disable: copy.lineDisable,
         }}
       />
+      */}
 
       <section className="grid gap-4 md:grid-cols-3">
         <Card className="border-blue-100">

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { sendLineText } from "@/lib/line/messaging";
+// import { sendLineText } from "@/lib/line/messaging";
 export async function notify(
   userId: string,
   titleJa: string,
@@ -22,17 +22,18 @@ export async function notify(
       throw error;
     }
   } else await prisma.appNotification.create({ data });
-  const [line, profile] = await Promise.all([
-    prisma.lineConnection.findUnique({ where: { userId } }),
-    prisma.profile.findUnique({ where: { userId } }),
-  ]);
-  if (line?.notificationEnabled && line.friendStatus) {
-    const locale = profile?.locale === "en" ? "en" : "ja";
-    await sendLineText(
-      line.lineUserId,
-      `${locale === "ja" ? titleJa : titleEn}\n${process.env.NEXT_PUBLIC_APP_URL ?? ""}/${locale}${path}`,
-    ).catch(() => undefined);
-  }
+  // LINE deferred until a future release.
+  //   const [line, profile] = await Promise.all([
+  //     prisma.lineConnection.findUnique({ where: { userId } }),
+  //     prisma.profile.findUnique({ where: { userId } }),
+  //   ]);
+  //   if (line?.notificationEnabled && line.friendStatus) {
+  //     const locale = profile?.locale === "en" ? "en" : "ja";
+  //     await sendLineText(
+  //       line.lineUserId,
+  //       `${locale === "ja" ? titleJa : titleEn}\n${process.env.NEXT_PUBLIC_APP_URL ?? ""}/${locale}${path}`,
+  //     ).catch(() => undefined);
+  //   }
 }
 export async function notifyBooking(
   id: string,
