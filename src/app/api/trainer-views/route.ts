@@ -9,7 +9,11 @@ export async function POST(request: Request) {
     return new Response("Invalid", { status: 400 });
   if (
     !(await prisma.trainerProfile.findFirst({
-      where: { id: trainerId, isPublished: true },
+      where: {
+        id: trainerId,
+        isPublished: true,
+        user: { isActive: true, role: "TRAINER" },
+      },
       select: { id: true },
     }))
   )

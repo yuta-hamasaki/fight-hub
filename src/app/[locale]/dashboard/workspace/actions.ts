@@ -163,7 +163,11 @@ export async function mutate(locale: Locale, f: FormData) {
       case "favorite": {
         requireClient();
         const profile = await prisma.trainerProfile.findFirst({
-          where: { id, isPublished: true },
+          where: {
+            id,
+            isPublished: true,
+            user: { isActive: true, role: "TRAINER" },
+          },
         });
         if (!profile) throw new Error("Not found");
         if (f.get("remove"))
@@ -214,7 +218,11 @@ export async function mutate(locale: Locale, f: FormData) {
         } else {
           const [published, prior, booking, member] = await Promise.all([
             prisma.trainerProfile.findFirst({
-              where: { userId: trainerId, isPublished: true },
+              where: {
+                userId: trainerId,
+                isPublished: true,
+                user: { isActive: true, role: "TRAINER" },
+              },
             }),
             prisma.message.findFirst({
               where: { trainerId, clientId: user.id },
@@ -444,6 +452,8 @@ export async function mutate(locale: Locale, f: FormData) {
         });
         if (
           !offering ||
+          !trainer?.isActive ||
+          trainer.role !== "TRAINER" ||
           !trainer?.trainerProfile?.isPublished ||
           !trainer.stripeAccount ||
           !isStripeOnboardingComplete(trainer.stripeAccount)

@@ -25,7 +25,7 @@ export async function POST(
   if (!userId)
     return NextResponse.redirect(new URL(`/${locale}/sign-in`, base), 303);
   const user = await prisma.user.findUnique({ where: { clerkUserId: userId } });
-  if (!user || user.role !== "CLIENT")
+  if (!user || !user.isActive || user.role !== "CLIENT")
     return new Response("Forbidden", { status: 403 });
   try {
     const f = await request.formData();

@@ -20,7 +20,7 @@ Add these to `.env`:
    - Production: `https://<your-domain>/api/stripe/connect/webhook`
 4. Subscribe the Connect endpoint to `account.updated`.
 5. Copy the webhook signing secret and save it in `STRIPE_CONNECT_WEBHOOK_SECRET`.
-6. Create a separate platform webhook at `/api/stripe/webhook` and subscribe it to `checkout.session.completed`, `checkout.session.expired`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, and `invoice.payment_failed`. Store that endpoint's secret in `STRIPE_WEBHOOK_SECRET`.
+6. Create a separate platform webhook at `/api/stripe/webhook` and subscribe it to `checkout.session.completed`, `checkout.session.expired`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`, `charge.refunded`, `refund.created`, `refund.updated`, and `refund.failed`. Store that endpoint's secret in `STRIPE_WEBHOOK_SECRET`.
 
 ## Webhook behavior
 

@@ -28,7 +28,9 @@ Fight Hub is a bilingual (`en` / `ja`) marketplace for finding martial-arts and 
 - Idempotent Stripe webhook processing for checkout, subscription, and Connect account events.
 - A 6% platform fee applied to session and subscription payments.
 
-See [marketplace workflows and deployment](docs/marketplace-workflows.md) for the new workspace, scheduling and cancellation policies, coaching, messages, passes, support, notifications, and deployment requirements. Application notifications use in-app and LINE delivery; email notifications are not implemented.
+See [marketplace workflows and deployment](docs/marketplace-workflows.md) for the workspace, scheduling and cancellation policies, coaching, messages, passes, support, notifications, and deployment requirements. Application notifications currently use in-app delivery only. LINE is disabled pending a future release, and application email notifications are not implemented.
+
+Before launching, complete the [release checklist](docs/release-checklist.md). `npm run check:production` validates production environment variable formats without contacting providers or printing credentials.
 
 ## Technology
 
@@ -61,9 +63,13 @@ STRIPE_SECRET_KEY="sk_test_..."
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 STRIPE_WEBHOOK_SECRET="whsec_..."
 STRIPE_CONNECT_WEBHOOK_SECRET="whsec_..."
+CRON_SECRET="<random secret, at least 32 characters>"
+SUPPORT_EMAIL="support@your-domain.example"
 ```
 
 `STRIPE_WEBHOOK_SECRET` belongs to the platform payment endpoint. `STRIPE_CONNECT_WEBHOOK_SECRET` belongs to the separate Connect endpoint. See [Stripe Connect setup](docs/stripe-connect-onboarding.md) for the event and endpoint configuration.
+
+`SUPPORT_EMAIL` is displayed on the public `/{locale}/support` page, which remains accessible without signing in. Optional `DATABASE_URL_UNPOOLED` selects the direct connection for migrations. Never use `prisma migrate dev` against production; use `npm run prisma:deploy` after testing the migrations.
 
 ## Local setup
 
@@ -86,6 +92,9 @@ Open [http://localhost:3000](http://localhost:3000). The root route redirects to
 | `npm run build`           | Generate Prisma Client and create a production build.    |
 | `npm run start`           | Start a completed production build.                      |
 | `npm run lint`            | Run ESLint.                                              |
+| `npm run typecheck`       | Run TypeScript checks.                                   |
+| `npm run check:production`| Validate production environment variable formats.        |
+| `npm run prisma:deploy`  | Apply checked-in migrations to the configured database.   |
 | `npm test`                | Run the Vitest suite once.                               |
 | `npm run test:watch`      | Run Vitest in watch mode.                                |
 | `npm run prisma:generate` | Regenerate Prisma Client.                                |
@@ -119,5 +128,6 @@ Replace `{locale}` with `en` or `ja`.
 ## Project documentation
 
 - [Marketplace workflows, verification, and deployment](docs/marketplace-workflows.md)
+- [Release checklist and operational recovery](docs/release-checklist.md)
 - [MVP architecture and implementation notes](docs/mvp-architecture-plan.md)
 - [Stripe Connect onboarding and webhook setup](docs/stripe-connect-onboarding.md)

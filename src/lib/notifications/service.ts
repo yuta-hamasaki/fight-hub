@@ -178,8 +178,12 @@ export async function sendUpcomingBookingReminders(now = new Date()) {
     },
     select: { id: true },
   });
-  await Promise.allSettled(
+  const results = await Promise.allSettled(
     bookings.map(({ id }) => notificationService.bookingReminder(id)),
   );
-  return bookings.length;
+  const failed = results.filter(
+    (result) => result.status === "rejected",
+  ).length;
+  if (failed) console.error("Booking reminders failed", { failed });
+  return { processed: bookings.length - failed, failed };
 }

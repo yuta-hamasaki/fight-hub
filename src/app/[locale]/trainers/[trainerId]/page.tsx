@@ -1,4 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
+import { publicPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -112,6 +113,7 @@ export async function generateMetadata({
   const trainer = await getTrainerDetail(locale, trainerId);
   if (!trainer) return { title: dictionary[locale].trainerDetailsNotFound };
   return {
+    ...publicPageMetadata(locale, `/trainers/${trainerId}`),
     title: `${trainer.name} · ${dictionary[locale].trainerDiscoveryTitle}`,
     description: trainer.bio || dictionary[locale].trainerDiscoveryDescription,
   };

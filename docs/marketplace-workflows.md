@@ -32,12 +32,12 @@ Subscription checkouts reuse a persisted checkout generation and Stripe idempote
 
 The revenue screen groups currencies separately and labels net figures as estimates excluding Stripe processing fees and adjustments. Use **Sync historical payments and memberships** once after upgrading to import old session payments and recurring invoices. The operation only reads Stripe and writes the ledger; it never charges or refunds customers. Historical payments cannot be reconstructed accurately from the old plan price alone.
 
-Notifications are **in-app and LINE only**. There is no application email-notification sender. LINE is optional; existing booking notifications and new message/change notifications are retained in the app. Stripe/Clerk-managed account or billing emails remain subject to those providers' settings.
+Notifications are currently **in-app only**. LINE OAuth routes and delivery are disabled, including when credentials are configured. There is no application email-notification sender. Stripe/Clerk-managed account or billing emails remain subject to those providers' settings. See [LINE release status](line-integration.md).
 
 ## Deployment checklist
 
 1. Use the checked-in Prisma migrations. Test them on a branch before deploying. `prisma.config.ts` loads `.env.local` before `.env`, respects injected environment variables, and prefers `DATABASE_URL_UNPOOLED` for migrations.
-2. Run `npx prisma migrate deploy` against the intended deployment database and `npm run build`. This working copy uses `.env.local` for the isolated development branch `codex-marketplace-workflows-20260922`; the production database has not been migrated by this implementation.
+2. Run `npm run prisma:deploy` against the intended deployment database and `npm run build`. Check the target before applying migrations: local `.env.local` overrides may point to a separate development branch. Verification for these release-readiness changes used a disposable local database; no production database was migrated.
 3. Register these events on the platform `/api/stripe/webhook` endpoint:
    - `checkout.session.completed`, `checkout.session.expired`
    - `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`
@@ -45,9 +45,13 @@ Notifications are **in-app and LINE only**. There is no application email-notifi
    - `charge.refunded`, `refund.created`, `refund.updated`, `refund.failed`
 4. Keep the separate Connect webhook configuration. Configure the Stripe billing portal to permit the intended cancellation/payment-method operations.
 5. Set `NEXT_PUBLIC_APP_URL` to the actual application origin. Set `CRON_SECRET`. Configure a scheduler to request `GET /api/cron/booking-reminders` with `Authorization: Bearer <CRON_SECRET>` every 15 minutes. `npm run maintenance` is a provider-independent runner for this endpoint. The endpoint reconciles abandoned checkout holds, retries refunds, and sends 24-hour reminders. Cron deployment is an external hosting configuration, not something starting `next dev` schedules automatically.
-6. Configure LINE credentials and link an account to test LINE delivery. An in-app notification does not require LINE.
+6. Set `SUPPORT_EMAIL` to an actual monitored address. Verify the public `/{locale}/support` page without signing in, including from the suspended-account page. Do not advertise LINE delivery while it is disabled.
 7. Review existing weekly hours and publish the intended local-time availability. Previously unrestricted days are now closed.
-8. Run a real Stripe **test-mode** checkout, cancellation/refund, billing-portal flow, and LINE delivery against the deployed test endpoint before enabling live charges.
+8. Run a real Stripe **test-mode** checkout, cancellation/refund, billing-portal flow, and in-app notification delivery against the deployed test endpoint before enabling live charges. Complete [the release checklist](release-checklist.md), including production configuration validation and monitoring.
+
+The maintenance endpoint returns HTTP 503 when a reconciliation, refund retry, or reminder fails, while still attempting independent jobs. Successful responses are `{ processed, reconciled, failed: 0 }`. Configure the scheduler/monitor to alert on non-2xx responses and missing executions; this repository does not provision external monitoring or a scheduler automatically. A successful format check does not verify that provider credentials work.
+
+`User.isActive = false` blocks authenticated application pages/actions and new reservations/subscriptions, and hides a trainer's public profile and availability. Webhooks and maintenance keep processing existing financial obligations. Suspension does **not** automatically cancel existing bookings or recurring subscriptions; operators must handle these through Stripe and support. Public support remains accessible.
 
 ## Verification
 

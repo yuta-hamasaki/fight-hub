@@ -125,10 +125,7 @@ export async function AppShell({
             <Link className="py-2 hover:underline" href={`/${locale}/trainers`}>
               {locale === "ja" ? "トレーナーを探す" : "Find a trainer"}
             </Link>
-            <Link
-              className="py-2 hover:underline"
-              href={`/${locale}/dashboard/workspace?tab=support`}
-            >
+            <Link className="py-2 hover:underline" href={`/${locale}/support`}>
               {locale === "ja" ? "お問い合わせ" : "Support"}
             </Link>
           </div>

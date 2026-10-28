@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { publicPageMetadata } from "@/lib/seo";
 
 import { TrainerDirectoryClient } from "@/components/trainers/trainer-directory-client";
 import {
@@ -20,6 +21,7 @@ export async function generateMetadata({
   const copy = dictionary[locale];
 
   return {
+    ...publicPageMetadata(locale, "/trainers"),
     title: copy.trainerDiscoveryTitle,
     description: copy.trainerDiscoveryDescription,
   };

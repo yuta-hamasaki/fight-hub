@@ -8,7 +8,11 @@ export async function GET(request: Request) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !validTimezone(timezone))
     return new Response("Invalid", { status: 400 });
   const offerings = await prisma.sessionOffering.findMany({
-    where: { isActive: true, trainerProfile: { isPublished: true } },
+    where: {
+      isActive: true,
+      trainerProfile: { isPublished: true },
+      trainer: { isActive: true, role: "TRAINER" },
+    },
     select: { id: true, trainerProfileId: true },
   });
   const ids = new Set<string>();

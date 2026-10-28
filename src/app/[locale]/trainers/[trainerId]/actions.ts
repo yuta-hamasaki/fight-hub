@@ -32,7 +32,11 @@ export async function manageReview(
   }
 
   const trainer = await prisma.trainerProfile.findFirst({
-    where: { id: trainerProfileId, isPublished: true },
+    where: {
+      id: trainerProfileId,
+      isPublished: true,
+      user: { isActive: true, role: "TRAINER" },
+    },
     select: { userId: true },
   });
   if (!trainer)

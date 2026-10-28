@@ -147,7 +147,7 @@ export async function getTrainerDirectory(
   locale: Locale,
 ): Promise<TrainerDirectoryItem[]> {
   const trainers = (await prisma.trainerProfile.findMany({
-    where: { isPublished: true },
+    where: { isPublished: true, user: { isActive: true, role: "TRAINER" } },
     include: {
       user: { include: { profile: true } },
       categories: true,
@@ -237,7 +237,11 @@ export async function getTrainerDetail(
   trainerId: string,
 ): Promise<TrainerDetail | null> {
   const trainer = await prisma.trainerProfile.findFirst({
-    where: { id: trainerId, isPublished: true },
+    where: {
+      id: trainerId,
+      isPublished: true,
+      user: { isActive: true, role: "TRAINER" },
+    },
     include: {
       user: {
         include: {

@@ -7,6 +7,7 @@ import {
 } from "@/lib/stripe/subscription-webhooks";
 import { refundBooking } from "./bookings";
 export async function reconcileExpiredHolds() {
+  let failed = 0;
   const holds = await prisma.booking.findMany({
     where: {
       status: "PENDING",
@@ -60,6 +61,7 @@ export async function reconcileExpiredHolds() {
           },
         });
     } catch (error) {
+      failed++;
       console.error("Booking reconciliation failed", {
         bookingId: b.id,
         error: error instanceof Error ? error.message : "Unknown",
@@ -74,6 +76,13 @@ export async function reconcileExpiredHolds() {
     },
     take: 50,
   });
-  for (const b of refunds) await refundBooking(b.id);
-  return holds.length;
+  for (const b of refunds) {
+    try {
+      if ((await refundBooking(b.id)) === "FAILED") failed++;
+    } catch (error) {
+      failed++;
+      console.error("Refund reconciliation failed", { bookingId: b.id, error });
+    }
+  }
+  return { reconciled: holds.length, failed };
 }

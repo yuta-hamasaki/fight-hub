@@ -18,10 +18,16 @@ export async function reserveBooking(input: {
   locale: string;
 }) {
   if (!validTimezone(input.timezone)) throw new Error("Invalid timezone");
+  const client = await prisma.user.findFirst({
+    where: { id: input.userId, role: "CLIENT", isActive: true },
+    select: { id: true },
+  });
+  if (!client) throw new Error("Account is not available");
   const offering = await prisma.sessionOffering.findFirst({
     where: {
       id: input.offeringId,
       isActive: true,
+      trainer: { isActive: true, role: "TRAINER" },
       trainerProfile: { isPublished: true },
     },
     include: { trainer: { include: { stripeAccount: true } } },
@@ -224,6 +230,7 @@ export async function refundBooking(id: string) {
         where: { paymentIntentId: b.stripePaymentIntentId },
         data: { refunded: fromMinor(refund.amount, b.currency) },
       });
+    return status;
   } catch {
     await prisma.booking.updateMany({
       where: {
@@ -233,6 +240,7 @@ export async function refundBooking(id: string) {
       },
       data: { refundStatus: "FAILED" },
     });
+    return "FAILED" as const;
   }
 }
 

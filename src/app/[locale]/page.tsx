@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { publicPageMetadata } from "@/lib/seo";
 import {
   ArrowRight,
   Search,
@@ -10,6 +11,15 @@ import { TrainerCard } from "@/components/trainers/trainer-card";
 import { buttonVariants } from "@/components/ui/button";
 import { getTrainerDirectory } from "@/lib/trainers";
 import type { Locale } from "@/lib/constants/locales";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: Locale }>;
+}) {
+  const { locale } = await params;
+  return publicPageMetadata(locale);
+}
 
 export default async function LocalizedHome({
   params,

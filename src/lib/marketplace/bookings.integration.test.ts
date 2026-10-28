@@ -197,6 +197,53 @@ describe.skipIf(!enabled)(
         locale: "ja",
         ...extra,
       });
+    it.each(["client", "trainer"])(
+      "blocks new bookings for a suspended %s",
+      async (account) => {
+        await prisma.user.update({
+          where: { id: account === "client" ? client : trainer },
+          data: { isActive: false },
+        });
+        await expect(reserve(client)).rejects.toThrow();
+        expect(
+          await prisma.booking.count({ where: { trainerId: trainer } }),
+        ).toBe(0);
+        expect(stripe.checkout.sessions.create).not.toHaveBeenCalled();
+        if (account === "trainer")
+          expect(
+            await availableSlots(
+              offering,
+              start().toISOString().slice(0, 10),
+              "UTC",
+            ),
+          ).toEqual([]);
+      },
+    );
+    it.each(["client", "trainer"])(
+      "blocks subscriptions for a suspended %s",
+      async (account) => {
+        const plan = await prisma.subscriptionPlan.create({
+          data: {
+            trainerProfileId: profile,
+            nameEn: "Test plan",
+            priceMonthly: 1000,
+          },
+        });
+        await prisma.user.update({
+          where: { id: account === "client" ? client : trainer },
+          data: { isActive: false },
+        });
+        await expect(
+          beginSubscription(client, plan.id, "en"),
+        ).rejects.toThrow();
+        expect(
+          await prisma.subscriptionCheckout.count({
+            where: { userId: client },
+          }),
+        ).toBe(0);
+        expect(stripe.checkout.sessions.create).not.toHaveBeenCalled();
+      },
+    );
     it("serializes concurrent reservations so only one takes the slot", async () => {
       const results = await Promise.allSettled([
         reserve(client),

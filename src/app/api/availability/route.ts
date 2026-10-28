@@ -20,8 +20,8 @@ export async function GET(request: Request) {
         sessionOfferingId: offering,
         status: "CONFIRMED",
         OR: [
-          { client: { clerkUserId: userId } },
-          { trainer: { clerkUserId: userId } },
+          { client: { clerkUserId: userId, isActive: true } },
+          { trainer: { clerkUserId: userId, isActive: true } },
         ],
       },
       select: { id: true },

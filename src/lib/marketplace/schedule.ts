@@ -81,6 +81,7 @@ export async function availableSlots(
   const offering = await prisma.sessionOffering.findFirst({
     where: {
       id: offeringId,
+      trainer: { isActive: true, role: "TRAINER" },
       ...(authorizedBookingId
         ? { bookings: { some: { id: authorizedBookingId } } }
         : { isActive: true, trainerProfile: { isPublished: true } }),

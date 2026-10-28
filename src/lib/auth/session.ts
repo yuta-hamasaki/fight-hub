@@ -11,6 +11,7 @@ export type DbUser = {
   clerkUserId: string;
   email: string | null;
   role: DbRole;
+  isActive: boolean;
 };
 
 export function localizedPath(locale: Locale, path: string) {
@@ -60,11 +61,14 @@ export async function ensureDbUser(clerkUserId: string): Promise<DbUser> {
       clerkUserId: true,
       email: true,
       role: true,
+      isActive: true,
     },
   }) as Promise<DbUser>;
 }
 
 export async function requireDbUser(locale: Locale): Promise<DbUser> {
   const clerkUserId = await requireAuth(locale);
-  return ensureDbUser(clerkUserId);
+  const user = await ensureDbUser(clerkUserId);
+  if (!user.isActive) redirect(localizedPath(locale, "/account-suspended"));
+  return user;
 }

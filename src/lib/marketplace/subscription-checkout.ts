@@ -9,11 +9,18 @@ export async function beginSubscription(
   planId: string,
   locale: string,
 ) {
+  const user = await prisma.user.findFirst({
+    where: { id: userId, role: "CLIENT", isActive: true },
+  });
+  if (!user) throw new Error("Account is not available");
   const plan = await prisma.subscriptionPlan.findFirst({
     where: {
       id: planId,
       isActive: true,
-      trainerProfile: { isPublished: true },
+      trainerProfile: {
+        isPublished: true,
+        user: { isActive: true, role: "TRAINER" },
+      },
     },
     include: {
       trainerProfile: {
@@ -99,7 +106,6 @@ export async function beginSubscription(
     });
     return beginSubscription(userId, planId, locale);
   }
-  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
   let customer = user.stripeCustomerId;
   if (!customer) {
     const legacy = await prisma.subscriptionPurchase.findFirst({
