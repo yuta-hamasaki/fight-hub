@@ -786,8 +786,8 @@ export default async function TrainerDashboardPage({
                       <option value="PENDING" disabled>
                         {copy.sessionStatusPending}
                       </option>
-                      <option value="CONFIRMED" disabled>
-                        {copy.sessionStatusConfirmed}
+                      <option value="CONFIRMED" disabled={booking.status !== "PENDING" || (!booking.passPurchaseId && !booking.stripePaymentIntentId)}>
+                        {booking.status === "PENDING" ? (locale === "ja" ? "承認して予約を確定" : "Approve request") : copy.sessionStatusConfirmed}
                       </option>
                       <option value="COMPLETED" disabled>
                         {copy.sessionStatusCompleted}

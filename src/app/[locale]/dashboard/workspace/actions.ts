@@ -16,7 +16,7 @@ import {
   scheduleData,
   slotAvailable,
 } from "@/lib/marketplace/schedule";
-import { cancelReservation } from "@/lib/marketplace/bookings";
+import { approveReservation, cancelReservation } from "@/lib/marketplace/bookings";
 import { notify, notifyBooking } from "@/lib/marketplace/notifications";
 import { notificationService } from "@/lib/notifications/service";
 import { getStripeClient, getAppBaseUrl } from "@/lib/stripe";
@@ -534,6 +534,10 @@ export async function mutate(locale: Locale, f: FormData) {
           );
         break;
       }
+      case "approve":
+        requireTrainer();
+        await approveReservation(id, user.id);
+        break;
       case "cancel":
         await cancelReservation(id, user.id, text(f, "reason", 300));
         break;

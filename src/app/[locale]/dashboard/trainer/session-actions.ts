@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireDbUser } from "@/lib/auth/session";
 import type { Locale } from "@/lib/constants/locales";
 import { prisma } from "@/lib/prisma";
-import { cancelReservation } from "@/lib/marketplace/bookings";
+import { approveReservation, cancelReservation } from "@/lib/marketplace/bookings";
 import { canFinishBooking } from "@/lib/marketplace/rules";
 import { notificationService } from "@/lib/notifications/service";
 
@@ -104,7 +104,9 @@ export async function updateBookingStatus(locale: Locale, formData: FormData) {
     where: { id: bookingId, trainerId: user.id },
   });
   if (!booking) return;
-  if (status === "CANCELED")
+  if (status === "CONFIRMED")
+    await approveReservation(bookingId, user.id);
+  else if (status === "CANCELED")
     await cancelReservation(bookingId, user.id, t(formData.get("reason")));
   else if (
     ["COMPLETED", "NO_SHOW"].includes(status) &&
