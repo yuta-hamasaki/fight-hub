@@ -2,12 +2,11 @@ import type { PurchaseStatus } from "@prisma/client";
 import type Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { getStripeClient } from "@/lib/stripe";
-import { notificationService } from "@/lib/notifications/service";
 import { fromMinor } from "@/lib/billing/money";
 import { calculatePlatformFeeAmount } from "@/lib/billing/fees";
 import { refundBooking } from "@/lib/marketplace/bookings";
 import { trainerLock } from "@/lib/marketplace/schedule";
-import { notify } from "@/lib/marketplace/notifications";
+import { notify, notifyBooking } from "@/lib/marketplace/notifications";
 export function mapStripeSubscriptionStatus(
   status: Stripe.Subscription.Status,
 ): PurchaseStatus {
@@ -174,7 +173,7 @@ export async function handleCheckoutSessionCompleted(
         stripeCheckoutSessionId: session.id,
         stripePaymentIntentId: paymentIntentId,
         amountPaid: amount,
-        ...(b.status === "PENDING" ? { status: "CONFIRMED" } : {}),
+        holdExpiresAt: null,
         ...(canceled && !b.stripePaymentIntentId
           ? { refundAmount: amount, refundStatus: "PENDING" }
           : {}),
@@ -203,11 +202,13 @@ export async function handleCheckoutSessionCompleted(
     where: { id: bookingId },
   });
   if (b.status === "CANCELED") await refundBooking(bookingId);
-  else
-    await Promise.allSettled([
-      notificationService.bookingConfirmed(bookingId),
-      notificationService.newTrainerBooking(bookingId),
-    ]);
+  else if (b.status === "PENDING")
+    await notifyBooking(
+      bookingId,
+      "決済が完了しました。予約リクエストはトレーナーの承認待ちです。",
+      "Payment received. Your booking request is awaiting trainer approval.",
+      `requested:${bookingId}`,
+    );
 }
 export async function handleCheckoutSessionExpired(
   session: Stripe.Checkout.Session,

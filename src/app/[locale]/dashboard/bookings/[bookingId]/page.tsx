@@ -79,7 +79,7 @@ export default async function BookingPage({
           {ja ? "状態" : "Status"}:{" "}
           <StatusBadge status={b.status} locale={locale} />
         </p>
-        {!trainer && b.status === "PENDING" && b.stripeCheckoutSessionId && (
+        {!trainer && b.status === "PENDING" && !b.stripePaymentIntentId && b.stripeCheckoutSessionId && (
           <Form
             locale={locale}
             op="resumePayment"
@@ -95,6 +95,15 @@ export default async function BookingPage({
             currency: b.currency,
           }).format(Number(b.amountPaid))}
         </p>
+        {b.status === "PENDING" && (b.passPurchaseId || b.stripePaymentIntentId) && (
+          <div className="space-y-3 rounded-lg bg-blue-50 p-3">
+            <p>{ja ? "トレーナーの承認待ちです。承認後に予約が確定します。" : "Awaiting trainer approval. Your booking will be confirmed once approved."}</p>
+            {trainer && b.startsAt > new Date() && (
+              <Form locale={locale} op="approve" id={b.id} booking={b.id}
+                submit={ja ? "予約リクエストを承認" : "Approve booking request"} />
+            )}
+          </div>
+        )}
         {b.passPurchaseId && (
           <p>{ja ? "回数券利用" : "Paid using a session credit"}</p>
         )}

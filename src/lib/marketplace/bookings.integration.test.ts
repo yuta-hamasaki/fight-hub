@@ -43,7 +43,7 @@ import { mutate } from "@/app/[locale]/dashboard/workspace/actions";
 import { availableSlots } from "./schedule";
 import { prisma } from "@/lib/prisma";
 import { beginSubscription } from "./subscription-checkout";
-import { reserveBooking, cancelReservation, refundBooking } from "./bookings";
+import { reserveBooking, approveReservation, cancelReservation, refundBooking } from "./bookings";
 import {
   handleCheckoutSessionCompleted,
   handleInvoicePaid,
@@ -280,7 +280,17 @@ describe.skipIf(!enabled)(
       expect(
         (await prisma.booking.findUniqueOrThrow({ where: { id: b.bookingId } }))
           .status,
-      ).toBe("CONFIRMED");
+      ).toBe("PENDING");
+    });
+    it("allows only the assigned trainer to approve a credit request once", async () => {
+      const b = await reserve(client, { passId: pass });
+      await expect(approveReservation(b.bookingId, other)).rejects.toThrow("Not authorized");
+      await Promise.all([
+        approveReservation(b.bookingId, trainer),
+        approveReservation(b.bookingId, trainer),
+      ]);
+      expect((await prisma.booking.findUniqueOrThrow({ where: { id: b.bookingId } })).status).toBe("CONFIRMED");
+      expect((await prisma.passPurchase.findUniqueOrThrow({ where: { id: pass } })).remaining).toBe(3);
     });
     it("books weekly credits atomically and returns a canceled credit only once", async () => {
       const b = await reserve(client, { passId: pass, count: 2 });
@@ -298,7 +308,7 @@ describe.skipIf(!enabled)(
       ).toBe(3);
       expect(
         await prisma.booking.count({
-          where: { trainerId: trainer, status: "CONFIRMED" },
+          where: { trainerId: trainer, status: "PENDING" },
         }),
       ).toBe(1);
     });

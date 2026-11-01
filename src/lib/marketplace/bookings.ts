@@ -107,7 +107,7 @@ export async function reserveBooking(input: {
               startsAt.getTime() + offering.durationMinutes * 60000,
             ),
             timezone: input.timezone,
-            status: input.passId ? "CONFIRMED" : "PENDING",
+            status: "PENDING",
             amountPaid: input.passId ? 0 : offering.price,
             currency: offering.currency,
             location: offering.location,
@@ -132,9 +132,9 @@ export async function reserveBooking(input: {
       bookings.map((b) =>
         notifyBooking(
           b.id,
-          "回数券で予約が確定しました",
-          "Your session credit booking is confirmed",
-          `confirmed:${b.id}`,
+          "回数券の予約リクエストを受け付けました。トレーナーの承認待ちです。",
+          "Your session credit booking is awaiting trainer approval",
+          `requested:${b.id}`,
         ),
       ),
     );
@@ -176,6 +176,31 @@ export async function reserveBooking(input: {
     data: { stripeCheckoutSessionId: session.id },
   });
   return { bookingId: booking.id, url: session.url };
+}
+
+export async function approveReservation(id: string, trainerId: string) {
+  const changed = await prisma.$transaction(async (db) => {
+    await trainerLock(db, trainerId);
+    const booking = await db.booking.findUniqueOrThrow({ where: { id } });
+    if (booking.trainerId !== trainerId) throw new Error("Not authorized");
+    if (booking.status === "CONFIRMED") return false;
+    if (
+      booking.status !== "PENDING" ||
+      booking.startsAt <= new Date() ||
+      (!booking.passPurchaseId && !booking.stripePaymentIntentId)
+    ) throw new Error("Only future, paid booking requests can be approved");
+    await db.booking.update({
+      where: { id },
+      data: { status: "CONFIRMED", holdExpiresAt: null },
+    });
+    return true;
+  });
+  if (changed) await notifyBooking(
+    id,
+    "予約リクエストが承認され、予約が確定しました",
+    "Your booking request was approved and your session is confirmed",
+    `approved:${id}`,
+  );
 }
 
 export async function refundBooking(id: string) {
