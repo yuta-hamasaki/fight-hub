@@ -70,7 +70,6 @@ export default async function TrainerDashboardPage({
     plans,
     offerings,
     bookings,
-    contentCount,
     stripeAccount,
     availability,
     // lineConnection,
@@ -102,7 +101,6 @@ export default async function TrainerDashboardPage({
       orderBy: { startsAt: "asc" },
       take: 20,
     }),
-    prisma.contentPost.count({ where: { authorId: user.id, isPremium: true } }),
     prisma.stripeAccount.findUnique({ where: { userId: user.id } }),
     prisma.trainerAvailability.findMany({
       where: { trainerId: user.id, isActive: true },
@@ -265,13 +263,14 @@ export default async function TrainerDashboardPage({
         </Card>
         <Card className="border-blue-100">
           <CardHeader>
-            <CardDescription>{copy.dashboardContentSummary}</CardDescription>
+            <CardDescription>
+              {copy.dashboardActiveOfferingsLabel}
+            </CardDescription>
             <CardTitle className="text-xl text-blue-700">
-              {contentCount} {copy.dashboardPremiumPostsLabel}
+              {activeOfferingCount}
             </CardTitle>
             <p className="text-sm text-muted-foreground">
-              {activeOfferingCount}/{totalOfferingCount}{" "}
-              {copy.dashboardActiveOfferingsLabel}
+              {totalOfferingCount} {copy.dashboardTotalLabel}
             </p>
           </CardHeader>
         </Card>
@@ -419,23 +418,6 @@ export default async function TrainerDashboardPage({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{copy.premiumContentManageTitle}</CardTitle>
-          <CardDescription>
-            {copy.premiumContentManageDescription}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            href={`/${locale}/dashboard/trainer/content`}
-            className={buttonVariants({ variant: "default" })}
-          >
-            {copy.premiumContentOpenManager}
-          </Link>
-        </CardContent>
-      </Card>
-
       <Card id="sessions">
         <CardHeader>
           <CardTitle>{copy.sessionManageTitle}</CardTitle>
@@ -480,6 +462,7 @@ export default async function TrainerDashboardPage({
                 name="durationMinutes"
                 type="number"
                 min={15}
+                max={240}
                 step={15}
 
                 className="rounded-md border px-3 py-2 text-sm"
@@ -496,8 +479,9 @@ export default async function TrainerDashboardPage({
               <input
                 name="price"
                 type="number"
-                min={1}
-                step="0.01"
+                min={50}
+                max={1000000}
+                step={1}
 
                 className="rounded-md border px-3 py-2 text-sm"
                 required
@@ -614,6 +598,7 @@ export default async function TrainerDashboardPage({
                           name="durationMinutes"
                           type="number"
                           min={15}
+                          max={240}
                           step={15}
                           defaultValue={offering.durationMinutes}
 
@@ -631,8 +616,9 @@ export default async function TrainerDashboardPage({
                         <input
                           name="price"
                           type="number"
-                          min={1}
-                          step="0.01"
+                          min={50}
+                          max={1000000}
+                          step={1}
                           defaultValue={offering.price.toString()}
 
                           className="rounded-md border px-3 py-2 text-sm"
@@ -729,7 +715,8 @@ export default async function TrainerDashboardPage({
             publish: copy.subscriptionPublishLabel,
             planList: copy.subscriptionCurrentPlans,
           }}
-          plans={plans}
+          plans={plans.map((p) => ({ id: p.id, nameEn: p.nameEn, nameJa: p.nameJa, descriptionEn: p.descriptionEn, descriptionJa: p.descriptionJa, priceMonthly: p.priceMonthly.toString(), isActive: p.isActive, sessionOfferingId: p.sessionOfferingId, sessionsPerMonth: p.sessionsPerMonth }))}
+          offerings={offerings.filter((o) => o.isActive && !o.isTrial).map((o) => ({ id: o.id, titleEn: o.titleEn, titleJa: o.titleJa }))}
           initialState={INITIAL_SUBSCRIPTION_PLAN_STATE}
           action={saveSubscriptionPlan.bind(null, locale)}
           onToggle={setPlanPublishStatus.bind(null, locale)}

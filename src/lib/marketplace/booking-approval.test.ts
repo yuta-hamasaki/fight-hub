@@ -5,11 +5,13 @@ const mocks = vi.hoisted(() => ({
   update: vi.fn(),
   lock: vi.fn(),
   notify: vi.fn(),
+  credit: vi.fn(),
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     $transaction: async (run: (db: unknown) => Promise<unknown>) => run({
       booking: { findUniqueOrThrow: mocks.findUniqueOrThrow, update: mocks.update },
+      passPurchase: { findUniqueOrThrow: mocks.credit },
     }),
   },
 }));
@@ -20,6 +22,7 @@ import { approveReservation } from "./bookings";
 describe("booking request approval", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.credit.mockResolvedValue({ status: "ACTIVE", validFrom: null, expiresAt: new Date(Date.now() + 7 * 86400000) });
     mocks.findUniqueOrThrow.mockResolvedValue({
       id: "booking", trainerId: "trainer", status: "PENDING",
       startsAt: new Date(Date.now() + 86400000),
@@ -64,5 +67,12 @@ describe("booking request approval", () => {
     await approveReservation("booking", "trainer");
     expect(mocks.update).not.toHaveBeenCalled();
     expect(mocks.notify).not.toHaveBeenCalled();
+  });
+  it("rejects approval after lesson credit payment has been refunded", async () => {
+    const booking = await mocks.findUniqueOrThrow();
+    mocks.findUniqueOrThrow.mockResolvedValue({ ...booking, passPurchaseId: "pass" });
+    mocks.credit.mockResolvedValue({ status: "REFUNDED", validFrom: null, expiresAt: new Date(Date.now() + 7 * 86400000) });
+    await expect(approveReservation("booking", "trainer")).rejects.toThrow("no longer valid");
+    expect(mocks.update).not.toHaveBeenCalled();
   });
 });

@@ -12,10 +12,7 @@ import { requireDbUser } from "@/lib/auth/session";
 import type { Locale } from "@/lib/constants/locales";
 import { dictionary } from "@/lib/i18n/dictionary";
 import { prisma } from "@/lib/prisma";
-import {
-  getAccessiblePremiumPosts,
-  getActiveSubscriptions,
-} from "@/lib/subscriptions";
+import { getActiveSubscriptions } from "@/lib/subscriptions";
 // LINE deferred until a future release.
 // import { LineConnectionCard } from "@/components/line/line-connection-card";
 
@@ -34,10 +31,9 @@ export default async function ClientDashboardPage({
   if (user.role !== "CLIENT") {
     redirect(`/${locale}/dashboard`);
   }
-  const [subscriptions, premiumPosts, bookings /* , lineConnection */] =
+  const [subscriptions, bookings /* , lineConnection */] =
     await Promise.all([
       getActiveSubscriptions(user.id, locale),
-      getAccessiblePremiumPosts(user.id, locale),
       prisma.booking.findMany({
         where: { clientId: user.id },
         include: {
@@ -97,7 +93,7 @@ export default async function ClientDashboardPage({
       />
       */}
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-2">
         <Card className="border-blue-100">
           <CardHeader>
             <CardDescription>{copy.subscriptionActiveTitle}</CardDescription>
@@ -111,14 +107,6 @@ export default async function ClientDashboardPage({
             <CardDescription>{copy.sessionBookingHistoryTitle}</CardDescription>
             <CardTitle className="text-xl text-blue-700">
               {bookingCount}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card className="border-blue-100">
-          <CardHeader>
-            <CardDescription>{copy.dashboardPurchasedContent}</CardDescription>
-            <CardTitle className="text-xl text-blue-700">
-              {premiumPosts.length}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -192,60 +180,6 @@ export default async function ClientDashboardPage({
               {copy.sessionBookingNoHistory}
             </p>
           )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{copy.dashboardPurchasedContent}</CardTitle>
-          <CardDescription className="text-blue-700">
-            <Link
-              href={`/${locale}/dashboard/client/content`}
-              className="underline"
-            >
-              {copy.clientPremiumOpenList}
-            </Link>
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {premiumPosts.length ? (
-            premiumPosts.map((post) => (
-              <article
-                key={post.id}
-                className="rounded-lg border border-border p-3 text-sm"
-              >
-                <p className="font-semibold">{post.title}</p>
-                <p className="text-muted-foreground">{post.body}</p>
-                <p className="text-xs text-muted-foreground">
-                  {post.trainerName} · {post.publishedAt}
-                </p>
-              </article>
-            ))
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              {copy.subscriptionNoPremiumPosts}
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="border-blue-100">
-        <CardHeader>
-          <CardTitle>{copy.dashboardContentAccessPoints}</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-2 sm:grid-cols-2">
-          <Link
-            href={`/${locale}/dashboard/client/content`}
-            className="rounded-md border border-blue-100 p-3 text-sm font-medium text-blue-700 hover:bg-blue-50"
-          >
-            {copy.clientPremiumOpenList}
-          </Link>
-          <Link
-            href={`/${locale}/trainers`}
-            className="rounded-md border border-blue-100 p-3 text-sm font-medium text-blue-700 hover:bg-blue-50"
-          >
-            {copy.trainers}
-          </Link>
         </CardContent>
       </Card>
     </div>

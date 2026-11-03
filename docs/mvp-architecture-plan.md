@@ -6,8 +6,8 @@
 
 - **Discovery:** Public bilingual trainer directory and trainer detail pages are implemented.
 - **Commerce:** Paid session Checkout, monthly subscription Checkout, Stripe Connect Express transfers, and idempotent webhook handling are implemented.
-- **Client tools:** Booking/subscription dashboards, premium-content access, and client-owned trainer review create/edit/delete flows are implemented.
-- **Trainer tools:** Profile, offerings, availability, bookings, plans, premium content, Stripe onboarding, and revenue reporting are implemented.
+- **Client tools:** Booking/subscription dashboards, and client-owned trainer review create/edit/delete flows are implemented.
+- **Trainer tools:** Profile, offerings, availability, bookings, plans, Stripe onboarding, and revenue reporting are implemented.
 - **Revenue reporting:** `/{locale}/dashboard/trainer/revenue` reports gross sales, the 6% platform fee, estimated trainer net revenue, transaction history, and connected-account payouts.
 - **Review integrity:** The database permits one review per client/trainer pair, and all review mutations re-check authentication, role, and ownership on the server.
 
@@ -20,7 +20,6 @@ src/app/[locale]/trainers
 src/app/[locale]/trainers/[trainerId]
 src/app/[locale]/dashboard/client
 src/app/[locale]/dashboard/trainer
-src/app/[locale]/dashboard/trainer/content
 src/app/[locale]/dashboard/trainer/revenue
 src/app/[locale]/trainer/dashboard/stripe
 src/app/api/stripe/webhook
@@ -42,7 +41,6 @@ src/app/api/stripe/connect/webhook
 - **Auth:** Clerk for sign-in/up and role-bound onboarding.
 - **Database:** PostgreSQL (Neon) via Prisma ORM.
 - **Payments:** Stripe Connect Express (trainer payouts) + Stripe Checkout/PaymentIntents for purchases.
-- **Content:** DB records for premium posts (text + private YouTube links).
 - **Bilingual:** Core route groups and dictionaries for English/Japanese from day one.
 
 ### Runtime architecture
@@ -59,7 +57,6 @@ src/app/api/stripe/connect/webhook
 - Authentication via Clerk middleware.
 - Authorization at server boundary using role checks (`client`, `trainer`, `admin` optional later).
 - Stripe webhooks validated server-side; payment status is source-of-truth from Stripe events.
-- Premium content access gated by active subscription ownership.
 
 ### i18n strategy (mandatory EN/JA)
 - Use locale segment in routes: `/(public)/[locale]/...` and `/(app)/[locale]/...`.
@@ -103,7 +100,6 @@ src/app/api/stripe/connect/webhook
         profile/page.tsx
         offerings/page.tsx
         plans/page.tsx
-        content/page.tsx
         bookings/page.tsx
         earnings/page.tsx
         stripe-connect/page.tsx
@@ -134,7 +130,6 @@ src/app/api/stripe/connect/webhook
     trainer.service.ts
     booking.service.ts
     subscription.service.ts
-    content.service.ts
   /validators
     booking.ts
     trainer.ts
@@ -185,7 +180,6 @@ Notes:
 - `/{locale}/trainer/stripe-connect`
 - `/{locale}/trainer/offerings`
 - `/{locale}/trainer/plans`
-- `/{locale}/trainer/content`
 - `/{locale}/trainer/bookings`
 - `/{locale}/trainer/earnings`
 
@@ -243,10 +237,6 @@ enum SubscriptionStatus {
   EXPIRED
 }
 
-enum ContentType {
-  YOUTUBE_PRIVATE_LINK
-  TEXT_POST
-}
 
 model User {
   id                 String    @id @default(cuid())
@@ -284,7 +274,6 @@ model TrainerProfile {
   offerings       SessionOffering[]
   plans           SubscriptionPlan[]
   bookings        Booking[]
-  premiumContents PremiumContent[]
 }
 
 model TrainerCategory {
@@ -392,24 +381,6 @@ model TrainerSubscription {
   @@index([trainerId, status])
 }
 
-model PremiumContent {
-  id              String      @id @default(cuid())
-  trainerId       String
-  type            ContentType
-  titleEn         String
-  titleJa         String
-  bodyEn          String?
-  bodyJa          String?
-  youtubeUrl      String?
-  isPublished     Boolean     @default(false)
-  publishedAt     DateTime?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-
-  trainer TrainerProfile @relation(fields: [trainerId], references: [id], onDelete: Cascade)
-
-  @@index([trainerId, isPublished, publishedAt])
-}
 ```
 
 ### Fee model (8% platform fee)
@@ -445,12 +416,10 @@ model PremiumContent {
 - Booking status lifecycle + trainer/client booking lists.
 - Stripe webhook handling and idempotency.
 
-### Phase 3 — Subscription plans + premium content
+### Phase 3 — Subscription plans
 **Goal:** Validate recurring revenue.
 - Trainer subscription plan CRUD.
 - Client subscription purchase flow.
-- Trainer premium content CRUD.
-- Access gating of premium content by active subscription.
 
 ### Phase 4 — Trainer operations dashboard
 **Goal:** Validate trainer retention and operability.

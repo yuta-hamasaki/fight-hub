@@ -2,6 +2,9 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { localParts, dayMs } from "./rules";
 type DB = Prisma.TransactionClient;
+export async function paymentLock(db: DB, paymentIntentId: string) {
+  await db.$queryRaw`SELECT 1 FROM pg_advisory_xact_lock(hashtext(${`payment:${paymentIntentId}`}))`;
+}
 export async function trainerLock(db: DB, trainerId: string) {
   await db.$queryRaw`SELECT 1 FROM pg_advisory_xact_lock(hashtext(${`trainer:${trainerId}`}))`;
 }

@@ -1,6 +1,6 @@
 # Fight Hub
 
-Fight Hub is a bilingual (`en` / `ja`) marketplace for finding martial-arts and fitness trainers. Clients can book paid sessions, purchase trainer subscriptions, read premium content, and manage trainer reviews. Trainers can publish their profile and services, manage bookings and availability, connect Stripe, and track revenue and payouts.
+Fight Hub is a bilingual (`en` / `ja`) marketplace for finding martial-arts and fitness trainers. Clients can book paid sessions, purchase trainer subscriptions, and manage trainer reviews. Trainers can publish their profile and services, manage bookings and availability, connect Stripe, and track revenue and payouts.
 
 ## Current features
 
@@ -8,15 +8,18 @@ Fight Hub is a bilingual (`en` / `ja`) marketplace for finding martial-arts and 
 
 - Browse and filter published trainer profiles.
 - Book available sessions and pay through Stripe Checkout.
-- Purchase monthly subscriptions and access assigned premium content.
+- Purchase monthly lesson subscriptions with a specific lesson and a monthly session allowance.
 - View booking and subscription information from the client dashboard.
 - Post, edit, or delete one review per trainer from the trainer detail page.
+
+All sales are for lessons: individual bookings, lesson passes, or monthly lesson credits. Monthly credits are granted once per paid billing invoice, are valid only for that billing period, and do not roll over. Credits are consumed when requesting a booking; trainer approval confirms it. Eligible cancellations return the credit, while full refunds invalidate outstanding credits and future bookings using them.
+
+Existing monthly plans without lesson terms are unpublished by the lesson-credit migration. Configure their lesson and monthly allowance before publishing them again. Existing Stripe contracts without those terms in their metadata require an explicit contract migration; the application does not guess their lesson entitlements or silently change existing contracts.
 
 ### Trainers
 
 - Create and publish a bilingual trainer profile.
 - Manage session offerings, weekly availability, bookings, and subscription plans.
-- Create text or private-YouTube premium content and assign it to plans.
 - Complete Stripe Connect Express onboarding and open the Stripe Express dashboard.
 - Use the revenue dashboard to review gross sales, the platform fee, estimated net revenue, sales history, and recent Stripe payouts.
 
@@ -110,9 +113,8 @@ Replace `{locale}` with `en` or `ja`.
 | ------------------------------------- | -------------------------------------- | --------------------------------------------------- |
 | `/{locale}/trainers`                  | Public                                 | Trainer directory.                                  |
 | `/{locale}/trainers/{trainerId}`      | Public; client actions require sign-in | Trainer profile, purchasing, booking, and reviews.  |
-| `/{locale}/dashboard/client`          | Client                                 | Client bookings, subscriptions, and content access. |
+| `/{locale}/dashboard/client`          | Client                                 | Client bookings and lesson subscriptions.          |
 | `/{locale}/dashboard/trainer`         | Trainer                                | Trainer management dashboard.                       |
-| `/{locale}/dashboard/trainer/content` | Trainer                                | Premium content management.                         |
 | `/{locale}/dashboard/trainer/revenue` | Trainer                                | Sales, fee, net revenue, and payout reporting.      |
 | `/{locale}/trainer/dashboard/stripe`  | Trainer                                | Stripe Connect and Express dashboard access.        |
 | `/api/stripe/webhook`                 | Stripe                                 | Checkout and subscription events.                   |

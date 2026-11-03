@@ -15,7 +15,6 @@ import {
   Star,
   ChartNoAxesCombined,
   LifeBuoy,
-  BookOpen,
   Wallet,
 } from "lucide-react";
 import type { Locale } from "@/lib/constants/locales";
@@ -46,11 +45,11 @@ export function DashboardNavigation({
       ["coaching", trainer ? "顧客・指導" : "目標・課題", "Coaching", Target],
       [
         "billing",
-        trainer ? "月額会員" : "契約・請求",
-        "Memberships",
+        trainer ? "月額レッスン契約" : "レッスン契約・請求",
+        "Lesson subscriptions",
         CreditCard,
       ],
-      ["passes", "回数券", "Session passes", Ticket],
+      ["passes", "レッスン利用回数", "Lesson credits", Ticket],
       ...(trainer
         ? ([
             ["settings", "予約設定", "Availability", Settings],
@@ -64,12 +63,6 @@ export function DashboardNavigation({
       en: en as string,
       icon: icon as typeof CalendarDays,
     })),
-    {
-      href: `${root}/${role}/content`,
-      ja: "会員コンテンツ",
-      en: "Member content",
-      icon: BookOpen,
-    },
     ...(trainer
       ? [
           {
@@ -109,10 +102,7 @@ export function DashboardNavigation({
           (search.get("tab") || "bookings") ===
             new URLSearchParams(query).get("tab"))
       );
-    return (
-      pathname === path ||
-      (path.endsWith("/content") && pathname.startsWith(`${path}/`))
-    );
+    return pathname === path;
   };
   return (
     <nav

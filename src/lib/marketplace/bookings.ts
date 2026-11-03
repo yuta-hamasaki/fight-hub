@@ -7,6 +7,7 @@ import { toMinor, fromMinor } from "@/lib/billing/money";
 import { trainerLock, userLock, scheduleData, slotAvailable } from "./schedule";
 import { validTimezone, weeklyDates, refundable } from "./rules";
 import { notifyBooking } from "./notifications";
+import { creditCoversSession } from "./subscription-lessons";
 
 export async function reserveBooking(input: {
   userId: string;
@@ -18,6 +19,7 @@ export async function reserveBooking(input: {
   locale: string;
 }) {
   if (!validTimezone(input.timezone)) throw new Error("Invalid timezone");
+  if (!Number.isFinite(input.startsAt.getTime())) throw new Error("Invalid date");
   const client = await prisma.user.findFirst({
     where: { id: input.userId, role: "CLIENT", isActive: true },
     select: { id: true },
@@ -85,10 +87,12 @@ export async function reserveBooking(input: {
         where: {
           id: input.passId,
           userId: input.userId,
+          trainerId: offering.trainerUserId,
           offeringId: offering.id,
           status: "ACTIVE",
           remaining: { gte: count },
           expiresAt: { gt: dates.at(-1)! },
+          OR: [{ validFrom: null }, { validFrom: { lte: new Date(Math.min(Date.now(), dates[0].getTime())) } }],
         },
         data: { remaining: { decrement: count } },
       });
@@ -132,7 +136,7 @@ export async function reserveBooking(input: {
       bookings.map((b) =>
         notifyBooking(
           b.id,
-          "回数券の予約リクエストを受け付けました。トレーナーの承認待ちです。",
+          "レッスン回数を使った予約リクエストを受け付けました。トレーナーの承認待ちです。",
           "Your session credit booking is awaiting trainer approval",
           `requested:${b.id}`,
         ),
@@ -189,6 +193,10 @@ export async function approveReservation(id: string, trainerId: string) {
       booking.startsAt <= new Date() ||
       (!booking.passPurchaseId && !booking.stripePaymentIntentId)
     ) throw new Error("Only future, paid booking requests can be approved");
+    if (booking.passPurchaseId) {
+      const credit = await db.passPurchase.findUniqueOrThrow({ where: { id: booking.passPurchaseId } });
+      if (!creditCoversSession(credit, booking.startsAt)) throw new Error("Session credits are no longer valid");
+    }
     await db.booking.update({
       where: { id },
       data: { status: "CONFIRMED", holdExpiresAt: null },
@@ -289,11 +297,15 @@ export async function cancelReservation(
     const eligible =
       current.status === "PENDING" ||
       refundable(current, actorId === current.trainerId);
-    if (eligible && current.passPurchaseId)
-      await db.passPurchase.update({
-        where: { id: current.passPurchaseId },
+    let returnedCredit = false;
+    if (eligible && current.passPurchaseId) {
+      const credit = await db.passPurchase.findUniqueOrThrow({ where: { id: current.passPurchaseId } });
+      const result = await db.passPurchase.updateMany({
+        where: { id: current.passPurchaseId, status: "ACTIVE", remaining: { lt: credit.credits } },
         data: { remaining: { increment: 1 } },
       });
+      returnedCredit = result.count === 1;
+    }
     return db.booking.update({
       where: { id },
       data: {
@@ -305,7 +317,7 @@ export async function cancelReservation(
         refundAmount:
           eligible && !current.passPurchaseId ? current.amountPaid : 0,
         refundStatus: current.passPurchaseId
-          ? eligible
+          ? returnedCredit
             ? "CREDIT_RETURNED"
             : "NONE"
           : eligible &&

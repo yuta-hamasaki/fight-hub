@@ -38,6 +38,8 @@ export type TrainerDetail = TrainerDirectoryItem & {
     name: string;
     description: string;
     priceMonthly: string;
+    lessonTitle: string;
+    sessionsPerMonth: number;
   }>;
   reviews: Array<{
     id: string;
@@ -48,12 +50,6 @@ export type TrainerDetail = TrainerDirectoryItem & {
     reviewerName: string;
     createdAt: string;
     trainerReply: string | null;
-  }>;
-  premiumPosts: Array<{
-    id: string;
-    title: string;
-    body: string;
-    publishedAt: string;
   }>;
   externalLinks: Array<{ label: string; href: string }>;
 };
@@ -247,16 +243,15 @@ export async function getTrainerDetail(
         include: {
           profile: true,
           stripeAccount: true,
-          contentPosts: {
-            where: { status: "PUBLISHED", isPremium: true },
-            orderBy: { publishedAt: "desc" },
-            take: 5,
-          },
         },
       },
       categories: true,
       offerings: { where: { isActive: true }, orderBy: { updatedAt: "desc" } },
-      plans: { where: { isActive: true }, orderBy: { updatedAt: "desc" } },
+      plans: {
+        where: { isActive: true, sessionsPerMonth: { gte: 1, lte: 50 }, sessionOffering: { isActive: true, isTrial: false, trainerProfileId: trainerId } },
+        include: { sessionOffering: true },
+        orderBy: { updatedAt: "desc" },
+      },
       reviews: {
         include: { reviewer: { include: { profile: true } } },
         orderBy: { createdAt: "desc" },
@@ -343,18 +338,10 @@ export async function getTrainerDetail(
         name: localized(plan.nameEn, plan.nameJa, locale),
         description: localized(plan.descriptionEn, plan.descriptionJa, locale),
         priceMonthly: toPrice(plan.priceMonthly.toString(), plan.currency),
+        lessonTitle: localized(plan.sessionOffering!.titleEn, plan.sessionOffering!.titleJa, locale),
+        sessionsPerMonth: plan.sessionsPerMonth!,
       }),
     ),
-    premiumPosts: trainer.user.contentPosts.map((post) => ({
-      id: post.id,
-      title: localized(post.titleEn, post.titleJa, locale),
-      body:
-        localized(post.summaryEn, post.summaryJa, locale) ||
-        localized(post.bodyEn, post.bodyJa, locale),
-      publishedAt: (post.publishedAt ?? post.createdAt)
-        .toISOString()
-        .slice(0, 10),
-    })),
     reviews: trainer.reviews.map((review) => ({
       id: review.id,
       reviewerId: review.reviewerId,

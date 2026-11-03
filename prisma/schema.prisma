@@ -27,17 +27,6 @@ enum PurchaseStatus {
   PAST_DUE
 }
 
-enum ContentStatus {
-  DRAFT
-  PUBLISHED
-  ARCHIVED
-}
-
-enum PremiumContentType {
-  TEXT
-  YOUTUBE
-}
-
 enum StripeOnboardingStatus {
   NOT_STARTED
   PENDING
@@ -106,7 +95,6 @@ model User {
   updatedAt             DateTime               @updatedAt
   profile               Profile?
   trainerProfile        TrainerProfile?
-  contentPosts          ContentPost[]
   sessionOfferings      SessionOffering[]
   clientBookings        Booking[]              @relation("ClientBookings")
   trainerBookings       Booking[]              @relation("TrainerBookings")
@@ -191,6 +179,9 @@ model TrainerCategory {
 
 model SubscriptionPlan {
   checkouts SubscriptionCheckout[]
+  sessionOfferingId String?
+  sessionsPerMonth  Int?
+  sessionOffering   SessionOffering? @relation(fields: [sessionOfferingId], references: [id], onDelete: Restrict)
 
   id               String                 @id @default(cuid())
   trainerProfileId String
@@ -205,51 +196,14 @@ model SubscriptionPlan {
   updatedAt        DateTime               @updatedAt
   trainerProfile   TrainerProfile         @relation(fields: [trainerProfileId], references: [id], onDelete: Cascade)
   purchases        SubscriptionPurchase[]
-  contentAccesses  ContentAccess[]
 
   @@index([trainerProfileId, isActive])
-}
-
-model ContentPost {
-  id           String             @id @default(cuid())
-  authorId     String
-  contentType  PremiumContentType @default(TEXT)
-  titleEn      String
-  titleJa      String?
-  summaryEn    String?
-  summaryJa    String?
-  bodyEn       String
-  bodyJa       String?
-  thumbnailUrl String?            @db.VarChar(2048)
-  youtubeUrl   String?            @db.VarChar(2048)
-  templateKey  String?            @db.VarChar(64)
-  isPremium    Boolean            @default(false)
-  status       ContentStatus      @default(DRAFT)
-  publishedAt  DateTime?
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
-  author       User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  accesses     ContentAccess[]
-
-  @@index([authorId, status])
-  @@index([publishedAt])
-}
-
-model ContentAccess {
-  id                 String           @id @default(cuid())
-  contentPostId      String
-  subscriptionPlanId String
-  createdAt          DateTime         @default(now())
-  contentPost        ContentPost      @relation(fields: [contentPostId], references: [id], onDelete: Cascade)
-  subscriptionPlan   SubscriptionPlan @relation(fields: [subscriptionPlanId], references: [id], onDelete: Cascade)
-
-  @@unique([contentPostId, subscriptionPlanId])
-  @@index([subscriptionPlanId])
 }
 
 model SessionOffering {
   packages SessionPackage[]
   passes   PassPurchase[]
+  subscriptionPlans SubscriptionPlan[]
 
   id               String         @id @default(cuid())
   trainerProfileId String
@@ -364,6 +318,7 @@ model TrainerAvailability {
 }
 
 model SubscriptionPurchase {
+  lessonCredits           PassPurchase[]
   id                      String           @id @default(cuid())
   userId                  String
   subscriptionPlanId      String
@@ -582,6 +537,12 @@ model PaymentRecord {
   @@index([paymentIntentId])
 }
 
+// A full-refund marker prevents delayed payment events from restoring lesson credits.
+model RefundedPayment {
+  paymentIntentId String @id
+  createdAt DateTime @default(now())
+}
+
 model SessionPackage {
   trainer   User            @relation(fields: [trainerId], references: [id], onDelete: Cascade)
   offering  SessionOffering @relation(fields: [offeringId], references: [id], onDelete: Restrict)
@@ -604,14 +565,18 @@ model PassPurchase {
   trainer  User            @relation("PassTrainer", fields: [trainerId], references: [id], onDelete: Restrict)
   user     User            @relation("PassClient", fields: [userId], references: [id], onDelete: Restrict)
   offering SessionOffering @relation(fields: [offeringId], references: [id], onDelete: Restrict)
-  package  SessionPackage  @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  package  SessionPackage? @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  subscriptionPurchase SubscriptionPurchase? @relation(fields: [subscriptionPurchaseId], references: [id], onDelete: Restrict)
   bookings Booking[]
 
   id                String    @id @default(cuid())
   userId            String
   trainerId         String
   offeringId        String
-  packageId         String
+  packageId         String?
+  subscriptionPurchaseId String?
+  stripeInvoiceId   String?   @unique
+  validFrom         DateTime?
   title             String
   credits           Int
   remaining         Int
@@ -625,4 +590,5 @@ model PassPurchase {
   createdAt         DateTime  @default(now())
 
   @@index([userId, status])
+  @@index([subscriptionPurchaseId])
 }

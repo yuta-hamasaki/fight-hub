@@ -65,7 +65,7 @@ export function SessionBookingForm({
               value={passId}
               onChange={(e) => setPassId(e.target.value)}
             >
-              <option value="">{ja ? "カードで支払う" : "Pay by card"}</option>
+              <option value="">{ja ? "都度払い（カード）" : "Pay per lesson (card)"}</option>
               {passes
                 .filter((p) => p.offeringId === offeringId && p.remaining > 0)
                 .map((p) => (
@@ -99,7 +99,7 @@ export function SessionBookingForm({
         label={
           passId
             ? ja
-              ? "回数券で予約する"
+              ? "レッスン回数を使って予約する"
               : "Book using credits"
             : copy.button
         }

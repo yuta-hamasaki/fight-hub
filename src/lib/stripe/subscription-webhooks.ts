@@ -5,7 +5,9 @@ import { getStripeClient } from "@/lib/stripe";
 import { fromMinor } from "@/lib/billing/money";
 import { calculatePlatformFeeAmount } from "@/lib/billing/fees";
 import { refundBooking } from "@/lib/marketplace/bookings";
-import { trainerLock } from "@/lib/marketplace/schedule";
+import { paymentLock, trainerLock, userLock } from "@/lib/marketplace/schedule";
+import { validLessonTerms } from "@/lib/marketplace/subscription-lessons";
+import { toMinor } from "@/lib/billing/money";
 import { notify, notifyBooking } from "@/lib/marketplace/notifications";
 export function mapStripeSubscriptionStatus(
   status: Stripe.Subscription.Status,
@@ -106,14 +108,21 @@ export async function handleCheckoutSessionCompleted(
     });
     if (
       !pass ||
+      pass.subscriptionPurchaseId ||
       (pass.checkoutSessionId && pass.checkoutSessionId !== session.id)
     )
       return;
-    await prisma.$transaction(async (db) => {
+    if (!paymentIntentId || session.currency?.toUpperCase() !== pass.currency.toUpperCase() || session.amount_total !== toMinor(Number(pass.amount), pass.currency))
+      throw new Error("Session pass payment does not match the purchase");
+    const wasRefunded = await prisma.$transaction(async (db) => {
+      await paymentLock(db, paymentIntentId);
+      await trainerLock(db, pass.trainerId);
+      const refunded = await db.refundedPayment.findUnique({ where: { paymentIntentId } });
       await db.passPurchase.updateMany({
         where: { id: pass.id, status: "PENDING" },
         data: {
-          status: "ACTIVE",
+          status: refunded ? "REFUNDED" : "ACTIVE",
+          ...(refunded ? { remaining: 0 } : {}),
           checkoutSessionId: session.id,
           paymentIntentId,
           expiresAt: new Date(
@@ -130,6 +139,7 @@ export async function handleCheckoutSessionCompleted(
           kind: "package",
           description: pass.title,
           amount,
+          refunded: refunded ? amount : 0,
           currency,
           paymentIntentId,
           fee: fromMinor(
@@ -139,7 +149,9 @@ export async function handleCheckoutSessionCompleted(
         },
         update: {},
       });
+      return Boolean(refunded);
     });
+    if (wasRefunded) return;
     await notify(
       pass.userId,
       "回数券の購入が完了しました",
@@ -160,13 +172,17 @@ export async function handleCheckoutSessionCompleted(
       original.stripeCheckoutSessionId !== session.id)
   )
     return;
+  if (!paymentIntentId || session.currency?.toUpperCase() !== original.currency.toUpperCase() || session.amount_total !== toMinor(Number(original.amountPaid), original.currency))
+    throw new Error("Booking payment does not match the reservation");
   await prisma.$transaction(async (db) => {
+    await paymentLock(db, paymentIntentId);
     await trainerLock(db, original.trainerId);
     const b = await db.booking.findUniqueOrThrow({
       where: { id: bookingId },
       include: { sessionOffering: true },
     });
     const canceled = b.status === "CANCELED";
+    const refunded = await db.refundedPayment.findUnique({ where: { paymentIntentId } });
     await db.booking.update({
       where: { id: bookingId },
       data: {
@@ -177,6 +193,7 @@ export async function handleCheckoutSessionCompleted(
         ...(canceled && !b.stripePaymentIntentId
           ? { refundAmount: amount, refundStatus: "PENDING" }
           : {}),
+        ...(refunded ? { status: "CANCELED", canceledAt: b.canceledAt ?? new Date(), refundStatus: "SUCCEEDED", refundAmount: amount } : {}),
       },
     });
     await db.paymentRecord.upsert({
@@ -188,6 +205,7 @@ export async function handleCheckoutSessionCompleted(
         kind: "session",
         description: b.sessionOffering.titleEn,
         amount,
+        refunded: refunded ? amount : 0,
         currency,
         paymentIntentId,
         fee: fromMinor(
@@ -266,6 +284,7 @@ export async function handleInvoicePaid(eventInvoice: Stripe.Invoice) {
   const invoice = await stripe.invoices.retrieve(eventInvoice.id, {
     expand: ["payments"],
   });
+  if (invoice.status !== "paid") return;
   const paymentIntentId = objectId(
     invoice.payments?.data.find((p) => p.status === "paid")?.payment
       .payment_intent,
@@ -294,6 +313,56 @@ export async function handleInvoicePaid(eventInvoice: Stripe.Invoice) {
     },
     update: {},
   });
+  // Only a paid regular billing period grants lessons. Checkout completion,
+  // retries, prorations and plan edits must never replenish used credits.
+  const offeringId = sub.metadata.sessionOfferingId;
+  const sessions = Number(sub.metadata.sessionsPerMonth);
+  if (!validLessonTerms(offeringId, sessions)) return;
+  if (invoice.status !== "paid" || !["subscription_create", "subscription_cycle"].includes(invoice.billing_reason ?? "")) return;
+  const subscriptionItemId = sub.items.data[0]?.id;
+  const line = invoice.lines.data.find((l) =>
+    subscriptionItemId && l.parent?.subscription_item_details?.subscription_item === subscriptionItemId &&
+    !l.parent?.subscription_item_details?.proration,
+  );
+  if (!line || line.period.end <= line.period.start) throw new Error("Missing subscription lesson period");
+  const offering = await prisma.sessionOffering.findFirst({
+    where: { id: offeringId, trainerProfileId: purchase.subscriptionPlan.trainerProfileId, isTrial: false },
+  });
+  if (!offering) throw new Error("Subscription lesson does not belong to this trainer");
+  const available = await prisma.$transaction(async (db) => {
+    if (paymentIntentId) await paymentLock(db, paymentIntentId);
+    await trainerLock(db, offering.trainerUserId);
+    await userLock(db, purchase.userId);
+    const refunded = paymentIntentId ? await db.refundedPayment.findUnique({ where: { paymentIntentId } }) : null;
+    await db.passPurchase.upsert({
+      where: { stripeInvoiceId: invoice.id },
+      create: {
+        userId: purchase.userId,
+        trainerId: offering.trainerUserId,
+        offeringId: offering.id,
+        subscriptionPurchaseId: purchase.id,
+        stripeInvoiceId: invoice.id,
+        title: purchase.subscriptionPlan.nameEn,
+        credits: sessions,
+        remaining: refunded ? 0 : sessions,
+        amount: fromMinor(invoice.amount_paid, currency),
+        currency,
+        paymentIntentId,
+        validityDays: Math.ceil((line.period.end - line.period.start) / 86400),
+        validFrom: new Date(line.period.start * 1000),
+        expiresAt: new Date(line.period.end * 1000),
+        status: refunded ? "REFUNDED" : "ACTIVE",
+      },
+      update: {},
+    });
+    if (refunded) await db.paymentRecord.updateMany({ where: { id: invoice.id }, data: { refunded: fromMinor(invoice.amount_paid, currency) } });
+    return !refunded;
+  });
+  if (!available) return;
+  await notify(purchase.userId,
+    "月額レッスンの回数が付与されました。利用期間内のレッスンを予約できます。",
+    "Your monthly lesson credits are ready. Book within the paid billing period.",
+    "/dashboard/workspace?tab=passes", `lesson-invoice:${invoice.id}`);
 }
 export async function handleChargeRefunded(eventCharge: Stripe.Charge) {
   const charge = await getStripeClient().charges.retrieve(eventCharge.id);
@@ -303,11 +372,30 @@ export async function handleChargeRefunded(eventCharge: Stripe.Charge) {
     where: { paymentIntentId },
     data: { refunded: fromMinor(charge.amount_refunded, charge.currency) },
   });
-  if (charge.refunded)
-    await prisma.passPurchase.updateMany({
-      where: { paymentIntentId },
-      data: { status: "REFUNDED", remaining: 0 },
+  if (charge.refunded) {
+    await prisma.$transaction(async (db) => {
+      await paymentLock(db, paymentIntentId);
+      await db.refundedPayment.upsert({ where: { paymentIntentId }, create: { paymentIntentId }, update: {} });
+      const credits = await db.passPurchase.findMany({ where: { paymentIntentId } });
+      for (const credit of credits) {
+        await trainerLock(db, credit.trainerId);
+        await userLock(db, credit.userId);
+        await db.passPurchase.update({ where: { id: credit.id }, data: { status: "REFUNDED", remaining: 0 } });
+        await db.booking.updateMany({
+          where: { passPurchaseId: credit.id, status: { in: ["PENDING", "CONFIRMED"] }, startsAt: { gt: new Date() } },
+          data: { status: "CANCELED", canceledAt: new Date(), cancellationReason: "Lesson credit payment was refunded", proposedStartsAt: null, proposedBy: null },
+        });
+      }
+      const bookings = await db.booking.findMany({ where: { stripePaymentIntentId: paymentIntentId } });
+      for (const booking of bookings) {
+        await trainerLock(db, booking.trainerId);
+        await db.booking.update({ where: { id: booking.id }, data: {
+          ...(["PENDING", "CONFIRMED"].includes(booking.status) ? { status: "CANCELED", canceledAt: new Date(), proposedStartsAt: null, proposedBy: null } : {}),
+          refundStatus: "SUCCEEDED", refundAmount: booking.amountPaid,
+        } });
+      }
     });
+  }
 }
 export async function handleRefundUpdated(eventRefund: Stripe.Refund) {
   const refund = await getStripeClient().refunds.retrieve(eventRefund.id),

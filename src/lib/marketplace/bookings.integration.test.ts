@@ -171,12 +171,12 @@ describe.skipIf(!enabled)(
     });
     afterEach(async () => {
       if (!trainer) return;
-      await prisma.subscriptionPurchase.deleteMany({
-        where: { subscriptionPlan: { trainerProfile: { userId: trainer } } },
-      });
       await prisma.paymentRecord.deleteMany({ where: { trainerId: trainer } });
       await prisma.booking.deleteMany({ where: { trainerId: trainer } });
       await prisma.passPurchase.deleteMany({ where: { trainerId: trainer } });
+      await prisma.subscriptionPurchase.deleteMany({
+        where: { subscriptionPlan: { trainerProfile: { userId: trainer } } },
+      });
       await prisma.sessionPackage.deleteMany({ where: { trainerId: trainer } });
       await prisma.user.deleteMany({
         where: { id: { in: [trainer, client, other] } },
@@ -226,6 +226,8 @@ describe.skipIf(!enabled)(
           data: {
             trainerProfileId: profile,
             nameEn: "Test plan",
+            sessionOfferingId: offering,
+            sessionsPerMonth: 4,
             priceMonthly: 1000,
           },
         });
@@ -329,6 +331,7 @@ describe.skipIf(!enabled)(
     });
     it("does not return credits for late client cancellation", async () => {
       const b = await reserve(client, { passId: pass });
+      await approveReservation(b.bookingId, trainer);
       await prisma.booking.update({
         where: { id: b.bookingId },
         data: { cancelBefore: new Date(Date.now() - 1000) },
@@ -426,6 +429,7 @@ describe.skipIf(!enabled)(
     });
     it("keeps the original slot until the other participant approves a reschedule", async () => {
       const b = await reserve(client, { passId: pass });
+      await approveReservation(b.bookingId, trainer);
       const next = new Date(start().getTime() + 86400000);
       const form = (op: string, extra: Record<string, string>) => {
         const f = new FormData();
@@ -468,6 +472,7 @@ describe.skipIf(!enabled)(
     });
     it("rejects reschedule acceptance when someone else has taken the proposed time", async () => {
       const b = await reserve(client, { passId: pass });
+      await approveReservation(b.bookingId, trainer);
       const next = new Date(start().getTime() + 86400000);
       await prisma.booking.update({
         where: { id: b.bookingId },
@@ -503,11 +508,33 @@ describe.skipIf(!enabled)(
         start().toISOString(),
       );
     });
+    it("reuses one package checkout for concurrent purchases", async () => {
+      const purchased = await prisma.passPurchase.findUniqueOrThrow({ where: { id: pass } });
+      actor.id = client;
+      actor.role = "CLIENT";
+      stripe.checkout.sessions.create.mockImplementation(async (args) => ({ id: `cs_${args.metadata.passId}`, url: "https://checkout.stripe.com/pass" }));
+      stripe.checkout.sessions.retrieve.mockResolvedValue({ status: "open", url: "https://checkout.stripe.com/pass" });
+      const form = () => {
+        const f = new FormData();
+        f.set("op", "buyPackage");
+        f.set("id", purchased.packageId!);
+        return f;
+      };
+      const results = await Promise.allSettled([mutate("ja", form()), mutate("ja", form())]);
+      for (const result of results) {
+        expect(result.status).toBe("rejected");
+        if (result.status === "rejected") expect(String(result.reason)).toContain("redirect:https://checkout.stripe.com/pass");
+      }
+      expect(await prisma.passPurchase.count({ where: { userId: client, packageId: purchased.packageId, status: "PENDING" } })).toBe(1);
+      expect(new Set(stripe.checkout.sessions.create.mock.calls.map((call) => call[1].idempotencyKey)).size).toBe(1);
+    });
     it("reuses one subscription checkout for concurrent purchases", async () => {
       const plan = await prisma.subscriptionPlan.create({
         data: {
           trainerProfileId: profile,
           nameEn: "Concurrent plan",
+          sessionOfferingId: offering,
+          sessionsPerMonth: 4,
           priceMonthly: 6000,
         },
       });
@@ -544,6 +571,8 @@ describe.skipIf(!enabled)(
         data: {
           trainerProfileId: profile,
           nameEn: "Monthly",
+          sessionOfferingId: offering,
+          sessionsPerMonth: 4,
           priceMonthly: 6000,
         },
       });
@@ -551,12 +580,13 @@ describe.skipIf(!enabled)(
         id: `sub_${plan.id}`,
         status: "active",
         customer: `cus_${client}`,
-        metadata: { dbUserId: client, subscriptionPlanId: plan.id },
+        metadata: { dbUserId: client, subscriptionPlanId: plan.id, sessionOfferingId: offering, sessionsPerMonth: "4" },
         cancel_at_period_end: false,
         application_fee_percent: 6,
         items: {
           data: [
             {
+              id: "si_lesson",
               current_period_end: Math.floor(Date.now() / 1000) + 2592000,
               price: { unit_amount: 6000, currency: "jpy" },
               quantity: 1,
@@ -567,6 +597,9 @@ describe.skipIf(!enabled)(
       stripe.subscriptions.retrieve.mockResolvedValue(sub);
       const invoice = {
         id: `in_${plan.id}`,
+        status: "paid",
+        billing_reason: "subscription_cycle",
+        lines: { data: [{ parent: { subscription_item_details: { subscription_item: "si_lesson", proration: false } }, period: { start: Math.floor(Date.now() / 1000), end: Math.floor(Date.now() / 1000) + 2592000 } }] },
         parent: { subscription_details: { subscription: sub.id } },
         amount_paid: 6000,
         currency: "jpy",
@@ -581,6 +614,7 @@ describe.skipIf(!enabled)(
       stripe.invoices.retrieve.mockResolvedValue(invoice);
       await handleInvoicePaid(invoice as unknown as Stripe.Invoice);
       await handleInvoicePaid(invoice as unknown as Stripe.Invoice);
+      expect(await prisma.passPurchase.count({ where: { stripeInvoiceId: invoice.id } })).toBe(1);
       expect(
         await prisma.paymentRecord.count({ where: { id: invoice.id } }),
       ).toBe(1);
@@ -591,6 +625,7 @@ describe.skipIf(!enabled)(
           })
         ).status,
       ).toBe("ACTIVE");
+      await prisma.passPurchase.deleteMany({ where: { stripeInvoiceId: invoice.id } });
       await prisma.subscriptionPurchase.deleteMany({
         where: { subscriptionPlanId: plan.id },
       });

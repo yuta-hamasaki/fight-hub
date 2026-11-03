@@ -7,7 +7,7 @@
 - [ ] 本番用の環境変数を設定し、`npm run check:production` を実行する。チェック対象はDB接続URLの形式、公開HTTPSオリジン、Clerk/Stripeの本番キー形式、両Webhook署名シークレット、32文字以上のCronシークレット、問い合わせメールアドレス。資格情報の有効性は各サービスで別途確認する。
 - [ ] ステージングで `npm run prisma:deploy`、`npm run lint`、`npm run typecheck`、`npm test`、`npm run build` を実行する。マイグレーションの前にDBの復元可能なバックアップを確保する。
 - [ ] 隔離したDBで `DATABASE_URL` と `TEST_DATABASE_URL` を同じ接続先にして統合テストを実行する。GitHub Actionsでは一時的なPostgreSQLを使い、統合テストを含めて実行する。CIは本番DBへ接続しない。
-- [ ] ステージングで実際のStripeテスト決済を行い、予約確定、二重送信、キャンセル、返金、月額契約、継続請求、支払い失敗、解約、コンテンツ閲覧権限を確認する。自動テストではStripeをモックしており、実際のカード決済までは確認しない。
+- [ ] ステージングで実際のStripeテスト決済を行い、予約確定、二重送信、キャンセル、返金、月額契約、継続請求、支払い失敗、解約を確認する。自動テストではStripeをモックしており、実際のカード決済までは確認しない。
 - [ ] Stripeにプラットフォーム用とConnect用のWebhookを別々に登録する。必要なイベントは [marketplace-workflows.md](marketplace-workflows.md) を参照する。Billing Portalで解約・支払方法変更を確認する。
 - [ ] Clerkの本番ドメイン、サインイン・サインアップ・リダイレクト設定を確認する。
 - [ ] `SUPPORT_EMAIL` に実際に受信できるアドレスを設定する。未ログイン・利用停止中の利用者が `/ja/support` と `/en/support` を開き、問い合わせできることを確認する。

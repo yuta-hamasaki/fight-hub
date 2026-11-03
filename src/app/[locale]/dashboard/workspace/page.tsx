@@ -329,9 +329,9 @@ export default async function Workspace({
         title={
           ja
             ? trainer
-              ? "月額会員の管理"
-              : "契約・請求"
-            : "Memberships and billing"
+              ? "月額レッスン契約の管理"
+              : "レッスン契約・請求"
+            : "Lesson subscriptions and billing"
         }
       >
         {items.map((p) => (
@@ -388,7 +388,8 @@ export default async function Workspace({
             )}
           </article>
         ))}
-        {!total && <p>{ja ? "契約はありません。" : "No memberships."}</p>}
+        {!trainer && <Link className="text-blue-700 underline" href={`/${locale}/dashboard/workspace?tab=passes`}>{ja ? "月額レッスンの残り回数から予約する" : "Book using monthly lesson credits"}</Link>}
+        {!total && <p>{ja ? "レッスン契約はありません。" : "No lesson subscriptions."}</p>}
         {pages(total)}
       </Panel>
     );

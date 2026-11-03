@@ -16,13 +16,15 @@ describe("local booking time and policies", () => {
     );
   });
   it("keeps a weekly booking at the same local time across DST", () => {
+    // Use a zone that still observes DST; Vancouver's future rules can differ
+    // between Node.js / ICU time-zone database versions.
     const dates = weeklyDates(
       new Date("2026-10-25T16:00:00Z"),
       2,
-      "America/Vancouver",
+      "America/Los_Angeles",
     );
     expect(dates[1].toISOString()).toBe("2026-11-01T17:00:00.000Z");
-    expect(localParts(dates[1], "America/Vancouver").minute).toBe(540);
+    expect(localParts(dates[1], "America/Los_Angeles").minute).toBe(540);
   });
   it("rejects a nonexistent spring-forward local time", () => {
     expect(() => localToUtc("2026-03-08T02:30", "America/Vancouver")).toThrow();
