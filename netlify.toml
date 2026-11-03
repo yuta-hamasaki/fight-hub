@@ -1,0 +1,4 @@
+[build.environment]
+  # These values are intentionally included in the browser bundle by Next.js.
+  # Keep scanning enabled for database credentials and server-side secret keys.
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_APP_URL,NEXT_PUBLIC_CLERK_SIGN_IN_URL,NEXT_PUBLIC_CLERK_SIGN_UP_URL,NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"

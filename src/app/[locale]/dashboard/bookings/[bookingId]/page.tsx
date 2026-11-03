@@ -105,7 +105,7 @@ export default async function BookingPage({
           </div>
         )}
         {b.passPurchaseId && (
-          <p>{ja ? "回数券利用" : "Paid using a session credit"}</p>
+          <p>{ja ? "回数券・月額レッスンの利用回数で予約" : "Booked using a lesson pass or monthly lesson credit"}</p>
         )}
         {b.seriesId && (
           <p>
@@ -143,7 +143,7 @@ export default async function BookingPage({
           {ja ? "同じメニューを予約" : "Book this session again"}
         </Link>
       </Panel>
-      <Panel
+      {(trainer || ["CONFIRMED", "COMPLETED", "NO_SHOW"].includes(b.status)) && <Panel
         title={
           ja
             ? "開催案内・受講後のフィードバック"
@@ -205,7 +205,7 @@ export default async function BookingPage({
             />
           </Form>
         )}
-      </Panel>
+      </Panel>}
       {editable && (
         <Panel title={ja ? "日程変更" : "Reschedule"}>
           {b.proposedStartsAt && (
@@ -295,7 +295,7 @@ export default async function BookingPage({
               b.status === "CANCELED"
                 ? Number(b.refundAmount) > 0 ||
                   b.refundStatus === "CREDIT_RETURNED"
-                : refundable(b, trainer)
+                : b.status === "PENDING" || refundable(b, trainer)
             )
               ? ja
                 ? "期限内のキャンセルは全額返金（回数券は回数返却）です。"

@@ -52,19 +52,20 @@ export async function saveSessionOffering(locale: Locale, formData: FormData) {
   const descriptionEn = t(formData.get("descriptionEn"));
   const descriptionJa = t(formData.get("descriptionJa"));
   const format = t(formData.get("format")) || "online";
-  const durationMinutes = Number.parseInt(
-    t(formData.get("durationMinutes")),
-    10,
-  );
-  const price = Number.parseFloat(t(formData.get("price")));
+  const durationMinutes = Number(t(formData.get("durationMinutes")));
+  const price = Number(t(formData.get("price")));
   const isActive = t(formData.get("isActive")) === "on";
 
   if (
     !titleEn ||
-    !Number.isFinite(durationMinutes) ||
+    titleEn.length > 200 ||
+    !["online", "in_person", "hybrid"].includes(format) ||
+    !Number.isInteger(durationMinutes) ||
     durationMinutes < 15 ||
-    !Number.isFinite(price) ||
-    price <= 0
+    durationMinutes > 240 ||
+    !Number.isInteger(price) ||
+    price < 50 ||
+    price > 1000000
   ) {
     return;
   }

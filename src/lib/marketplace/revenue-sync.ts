@@ -5,7 +5,8 @@ import {
   handleInvoicePaid,
   handleSubscriptionUpdated,
 } from "@/lib/stripe/subscription-webhooks";
-// Read Stripe only; this operation does not charge, refund, or notify customers.
+// Reconcile Stripe payments and grant missing paid lesson credits once per invoice.
+// This never charges or refunds; lesson-credit notifications are deduplicated.
 export async function syncTrainerRevenue(trainerId: string) {
   const stripe = getStripeClient();
   const bookings = await prisma.booking.findMany({

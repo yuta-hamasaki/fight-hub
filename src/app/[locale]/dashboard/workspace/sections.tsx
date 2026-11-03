@@ -760,10 +760,12 @@ export async function Passes({
     where: { id: { in: passes.map((p) => p.offeringId) } },
   });
   return (
-    <Panel title={ja ? "購入した回数券" : "My session passes"}>
+    <Panel title={ja ? "レッスンの回数券・月額利用回数" : "Lesson passes and monthly credits"}>
       {passes.map((p) => (
         <article key={p.id} className="space-y-2 rounded-lg border p-4">
           <h3 className="font-bold">{p.title}</h3>
+          <p>{p.subscriptionPurchaseId ? (ja ? "月額レッスンの利用回数（繰り越しなし）" : "Monthly lesson credits (no rollover)") : (ja ? "レッスン回数券" : "Lesson pass")}</p>
+          <p>{ja ? "対象レッスン" : "Lesson"}: {offerings.find((o) => o.id === p.offeringId)?.titleEn || "—"}</p>
           <p>
             {p.remaining} / {p.credits} {ja ? "回残り" : "credits remaining"} ·{" "}
             {statusLabel(
@@ -775,8 +777,10 @@ export async function Passes({
             {ja ? "利用期限" : "Valid until"}:{" "}
             {p.expiresAt?.toISOString().slice(0, 10) || "—"}
           </p>
+          {p.validFrom && <p>{ja ? "利用開始" : "Valid from"}: {p.validFrom.toISOString().slice(0, 10)}</p>}
           {p.status === "ACTIVE" &&
             p.remaining > 0 &&
+            (!p.validFrom || p.validFrom <= new Date()) &&
             p.expiresAt &&
             p.expiresAt > new Date() && (
               <Link
@@ -784,7 +788,7 @@ export async function Passes({
                 href={`/${locale}/trainers/${offerings.find((o) => o.id === p.offeringId)?.trainerProfileId}?offering=${p.offeringId}#book-session`}
               >
                 {ja
-                  ? "回数券で予約・毎週の定期予約"
+                  ? "利用回数でレッスンを予約"
                   : "Book a session or weekly series"}
               </Link>
             )}

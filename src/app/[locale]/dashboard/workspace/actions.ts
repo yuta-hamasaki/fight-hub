@@ -17,6 +17,7 @@ import {
   slotAvailable,
 } from "@/lib/marketplace/schedule";
 import { approveReservation, cancelReservation } from "@/lib/marketplace/bookings";
+import { creditCoversSession } from "@/lib/marketplace/subscription-lessons";
 import { notify, notifyBooking } from "@/lib/marketplace/notifications";
 import { notificationService } from "@/lib/notifications/service";
 import { getStripeClient, getAppBaseUrl } from "@/lib/stripe";
@@ -448,7 +449,7 @@ export async function mutate(locale: Locale, f: FormData) {
           include: { stripeAccount: true, trainerProfile: true },
         });
         const offering = await prisma.sessionOffering.findFirst({
-          where: { id: pack.offeringId, isActive: true, isTrial: false },
+          where: { id: pack.offeringId, trainerUserId: pack.trainerId, isActive: true, isTrial: false },
         });
         if (
           !offering ||
@@ -459,8 +460,16 @@ export async function mutate(locale: Locale, f: FormData) {
           !isStripeOnboardingComplete(trainer.stripeAccount)
         )
           throw new Error("Unavailable");
-        const pass = await prisma.passPurchase.create({
-          data: {
+        // A checkout retry must reuse the same purchase and Stripe idempotency
+        // key instead of creating another chargeable pass on a double submit.
+        const pass = await prisma.$transaction(async (db) => {
+          await userLock(db, user.id);
+          const pending = await db.passPurchase.findFirst({
+            where: { userId: user.id, packageId: id, status: "PENDING" },
+            orderBy: { createdAt: "desc" },
+          });
+          if (pending) return pending;
+          return db.passPurchase.create({ data: {
             userId: user.id,
             trainerId: pack.trainerId,
             offeringId: pack.offeringId,
@@ -471,12 +480,40 @@ export async function mutate(locale: Locale, f: FormData) {
             amount: pack.price,
             currency: pack.currency,
             validityDays: pack.validityDays,
-          },
+          } });
         });
-        const amount = toMinor(Number(pack.price), pack.currency);
+        if (pass.checkoutSessionId) {
+          const previous = await getStripeClient().checkout.sessions.retrieve(pass.checkoutSessionId);
+          if (previous.status === "open" && previous.url) {
+            externalUrl = previous.url;
+            break;
+          }
+          if (previous.status === "complete") {
+            destination = `/${locale}/dashboard/workspace?tab=passes`;
+            break;
+          }
+          await prisma.passPurchase.updateMany({ where: { id: pass.id, status: "PENDING" }, data: { status: "EXPIRED" } });
+          throw new Error("The previous checkout expired. Please try again.");
+        }
+        const expiresAt = Math.floor(pass.createdAt.getTime() / 1000) + 31 * 60;
+        if (expiresAt <= Math.floor(Date.now() / 1000)) {
+          // A timeout can leave a paid checkout without its ID in the database.
+          // Reconcile Stripe before allowing another purchase attempt.
+          let found = false;
+          for await (const previous of getStripeClient().checkout.sessions.list({ created: { gte: Math.floor(pass.createdAt.getTime() / 1000) - 60, lte: expiresAt }, limit: 100 })) {
+            if (previous.metadata?.passId !== pass.id) continue;
+            await prisma.passPurchase.updateMany({ where: { id: pass.id }, data: { checkoutSessionId: previous.id } });
+            found = true;
+            break;
+          }
+          if (!found) await prisma.passPurchase.updateMany({ where: { id: pass.id, status: "PENDING", checkoutSessionId: null }, data: { status: "EXPIRED" } });
+          throw new Error("The previous checkout was reconciled. Please try again.");
+        }
+        const amount = toMinor(Number(pass.amount), pass.currency);
         const session = await getStripeClient().checkout.sessions.create(
           {
             mode: "payment",
+            expires_at: expiresAt,
             payment_method_types: ["card"],
             metadata: { passId: pass.id },
             success_url: `${getAppBaseUrl()}/${locale}/dashboard/workspace?tab=passes&saved=1`,
@@ -491,9 +528,9 @@ export async function mutate(locale: Locale, f: FormData) {
               {
                 quantity: 1,
                 price_data: {
-                  currency: pack.currency,
+                  currency: pass.currency,
                   unit_amount: amount,
-                  product_data: { name: pack.title },
+                  product_data: { name: pass.title },
                 },
               },
             ],
@@ -609,8 +646,8 @@ export async function mutate(locale: Locale, f: FormData) {
             const pass = await db.passPurchase.findUniqueOrThrow({
               where: { id: b.passPurchaseId },
             });
-            if (!pass.expiresAt || start >= pass.expiresAt)
-              throw new Error("Pass expires before this session");
+            if (!creditCoversSession(pass, start))
+              throw new Error("Session credits do not cover this time");
           }
           if (
             await db.booking.findFirst({

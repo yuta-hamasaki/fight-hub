@@ -26,13 +26,14 @@ type Props = {
     publish: string;
     planList: string;
   };
-  plans: Array<{ id: string; nameEn: string; nameJa: string | null; descriptionEn: string | null; descriptionJa: string | null; priceMonthly: { toString(): string }; isActive: boolean }>;
+  plans: Array<{ id: string; nameEn: string; nameJa: string | null; descriptionEn: string | null; descriptionJa: string | null; priceMonthly: string; isActive: boolean; sessionOfferingId: string | null; sessionsPerMonth: number | null }>;
+  offerings: Array<{ id: string; titleEn: string; titleJa: string | null }>;
   initialState: SubscriptionPlanFormState;
   action: (state: SubscriptionPlanFormState, formData: FormData) => Promise<SubscriptionPlanFormState>;
   onToggle: (planId: string, isActive: boolean) => Promise<void>;
 };
 
-export function SubscriptionPlanManager({ locale, copy, plans, initialState, action, onToggle }: Props) {
+export function SubscriptionPlanManager({ locale, copy, plans, offerings, initialState, action, onToggle }: Props) {
   const [selectedId, setSelectedId] = useState<string>(plans[0]?.id ?? "");
   const [state, formAction, isPending] = useActionState(action, initialState);
 
@@ -62,8 +63,21 @@ export function SubscriptionPlanManager({ locale, copy, plans, initialState, act
         ))}
       </div>
 
-      <form action={formAction} className="grid gap-4 md:grid-cols-2">
+      <form key={selectedId} action={formAction} className="grid gap-4 md:grid-cols-2">
         <input type="hidden" name="planId" value={selectedPlan?.id ?? ""} />
+
+        <div className="space-y-2">
+          <Label htmlFor="sessionOfferingId">{locale === "ja" ? "対象レッスン" : "Included lesson"}</Label>
+          <select id="sessionOfferingId" name="sessionOfferingId" required defaultValue={selectedPlan?.sessionOfferingId ?? ""} className="w-full rounded-md border p-2">
+            <option value="" disabled>{locale === "ja" ? "レッスンを選択" : "Choose a lesson"}</option>
+            {offerings.map((o) => <option key={o.id} value={o.id}>{locale === "ja" ? o.titleJa || o.titleEn : o.titleEn}</option>)}
+          </select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="sessionsPerMonth">{locale === "ja" ? "毎月のレッスン回数" : "Lessons per month"}</Label>
+          <Input id="sessionsPerMonth" name="sessionsPerMonth" type="number" min={1} max={50} step={1} required defaultValue={selectedPlan?.sessionsPerMonth ?? ""} />
+          <p className="text-sm text-muted-foreground">{locale === "ja" ? "支払い済みの請求期間内に利用できます。未使用回数は繰り越しません。変更は新規契約に適用されます。" : "Use within each paid billing period. Unused credits do not roll over. Changes apply to new subscriptions."}</p>
+        </div>
 
         <div className="space-y-2">
           <Label htmlFor="nameEn">{copy.nameEn}</Label>
@@ -81,8 +95,9 @@ export function SubscriptionPlanManager({ locale, copy, plans, initialState, act
             id="priceMonthly"
             name="priceMonthly"
             type="number"
-            min="1"
-            step="0.01"
+            min="50"
+            max="1000000"
+            step="1"
             required
             defaultValue={selectedPlan?.priceMonthly.toString() ?? ""}
           />

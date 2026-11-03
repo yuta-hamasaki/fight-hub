@@ -4,6 +4,7 @@ import { isStripeOnboardingComplete } from "@/lib/stripe/connect";
 import { toMinor } from "@/lib/billing/money";
 import { platformFeePercent } from "@/lib/billing/fees";
 import { userLock } from "./schedule";
+import { validLessonTerms } from "./subscription-lessons";
 export async function beginSubscription(
   userId: string,
   planId: string,
@@ -23,6 +24,7 @@ export async function beginSubscription(
       },
     },
     include: {
+      sessionOffering: true,
       trainerProfile: {
         include: { user: { include: { stripeAccount: true } } },
       },
@@ -31,6 +33,8 @@ export async function beginSubscription(
   const account = plan?.trainerProfile.user.stripeAccount;
   if (!plan || !account || !isStripeOnboardingComplete(account))
     throw new Error("Unavailable");
+  if (!validLessonTerms(plan.sessionOfferingId, plan.sessionsPerMonth) || !plan.sessionOffering?.isActive || plan.sessionOffering.isTrial || plan.sessionOffering.trainerProfileId !== plan.trainerProfileId)
+    throw new Error("This monthly plan has no available lesson terms");
   const stripe = getStripeClient(),
     base = getAppBaseUrl(),
     billing = `${base}/${locale}/dashboard/workspace?tab=billing`;
@@ -140,6 +144,8 @@ export async function beginSubscription(
         dbUserId: userId,
         subscriptionPlanId: plan.id,
         trainerProfileId: plan.trainerProfileId,
+        sessionOfferingId: plan.sessionOfferingId!,
+        sessionsPerMonth: String(plan.sessionsPerMonth),
       },
       subscription_data: {
         transfer_data: { destination: account.stripeAccountId },
@@ -148,6 +154,8 @@ export async function beginSubscription(
           dbUserId: userId,
           subscriptionPlanId: plan.id,
           trainerProfileId: plan.trainerProfileId,
+          sessionOfferingId: plan.sessionOfferingId!,
+          sessionsPerMonth: String(plan.sessionsPerMonth),
         },
       },
       line_items: [

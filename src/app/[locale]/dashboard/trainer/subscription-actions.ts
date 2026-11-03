@@ -9,8 +9,8 @@ import { prisma } from "@/lib/prisma";
 import type { SubscriptionPlanFormState } from "./subscription-plan-types";
 
 function parsePrice(value: string) {
-  const numeric = Number.parseFloat(value);
-  if (!Number.isFinite(numeric) || numeric <= 0) {
+  const numeric = Number(value);
+  if (!Number.isInteger(numeric) || numeric < 50 || numeric > 1000000) {
     return null;
   }
 
@@ -47,6 +47,15 @@ export async function saveSubscriptionPlan(
   const descriptionJa = normalizeText(formData.get("descriptionJa"));
   const priceMonthly = parsePrice(normalizeText(formData.get("priceMonthly")));
   const isActive = normalizeText(formData.get("isActive")) === "on";
+  const sessionOfferingId = normalizeText(formData.get("sessionOfferingId"));
+  const sessionsPerMonth = Number(formData.get("sessionsPerMonth"));
+  const offering = await prisma.sessionOffering.findFirst({
+    where: { id: sessionOfferingId, trainerUserId: user.id, trainerProfileId: trainerProfile.id, isActive: true, isTrial: false },
+    select: { id: true },
+  });
+  if (!offering || !Number.isInteger(sessionsPerMonth) || sessionsPerMonth < 1 || sessionsPerMonth > 50) {
+    return { status: "error", message: locale === "ja" ? "対象レッスンと月1〜50回の利用回数を設定してください。" : "Choose a regular lesson and 1–50 sessions per month." };
+  }
 
   if (!nameEn || nameEn.length > 80) {
     return { status: "error", message: "Plan name (EN) is required and must be 80 characters or fewer." };
@@ -57,7 +66,7 @@ export async function saveSubscriptionPlan(
   }
 
   if (!priceMonthly) {
-    return { status: "error", message: "Please set a valid monthly price." };
+    return { status: "error", message: locale === "ja" ? "月額料金は50〜1,000,000円の整数にしてください。" : "Set a whole-yen monthly price between 50 and 1,000,000." };
   }
 
   if (descriptionEn.length > 500 || descriptionJa.length > 500) {
@@ -65,6 +74,8 @@ export async function saveSubscriptionPlan(
   }
 
   const data = {
+    sessionOfferingId,
+    sessionsPerMonth,
     trainerProfileId: trainerProfile.id,
     nameEn,
     nameJa: nameJa || null,
@@ -114,6 +125,7 @@ export async function setPlanPublishStatus(locale: Locale, planId: string, isAct
     where: {
       id: planId,
       trainerProfileId: trainerProfile.id,
+      ...(isActive ? { sessionOfferingId: { not: null }, sessionsPerMonth: { gte: 1, lte: 50 }, sessionOffering: { trainerUserId: user.id, isActive: true, isTrial: false } } : {}),
     },
     data: {
       isActive,

@@ -14,7 +14,6 @@ import {
   Clock3,
   ExternalLink,
   Globe2,
-  Heart,
   Languages,
   MapPin,
   MessageCircle,
@@ -32,10 +31,6 @@ import { ReviewManager } from "@/components/trainers/review-manager";
 import type { Locale } from "@/lib/constants/locales";
 import { dictionary } from "@/lib/i18n/dictionary";
 import { prisma } from "@/lib/prisma";
-import {
-  hasActiveSubscriptionForTrainer,
-  getAccessiblePremiumPosts,
-} from "@/lib/subscriptions";
 import { getTrainerDetail } from "@/lib/trainers";
 import { Form, Field, Hidden, Panel } from "@/components/marketplace/forms";
 import { ProfileViewTracker } from "@/components/marketplace/profile-view-tracker";
@@ -60,10 +55,9 @@ const pageCopy = {
     from: "from",
     membership: "Train together, consistently",
     membershipLead:
-      "Get ongoing support and members-only content with a monthly plan.",
+      "Get ongoing coaching support with a monthly plan.",
     monthly: "/ month",
     popular: "Monthly support",
-    premium: "Member resources",
     reviewsTitle: "What clients say",
     links: "Find me online",
     allReviews: "Based on verified client experiences",
@@ -90,10 +84,9 @@ const pageCopy = {
     from: "",
     membership: "継続的なサポートで、習慣に",
     membershipLead:
-      "月額プランで継続サポートとメンバー限定コンテンツを利用できます。",
+      "月額プランで継続的な指導サポートを受けられます。",
     monthly: "/ 月",
     popular: "継続サポート",
-    premium: "メンバー限定リソース",
     reviewsTitle: "クライアントの声",
     links: "外部サイト",
     allReviews: "実際のクライアントによる評価です",
@@ -148,14 +141,6 @@ export default async function TrainerDetailPage({
   const ownReview = dbUser
     ? trainer.reviews.find((review) => review.reviewerId === dbUser.id)
     : undefined;
-  const accessiblePosts = dbUser
-    ? (await getAccessiblePremiumPosts(dbUser.id, locale)).filter(
-        (p) => p.trainerProfileId === trainerId,
-      )
-    : [];
-  const hasAccess = dbUser
-    ? await hasActiveSubscriptionForTrainer(dbUser.id, trainerId)
-    : false;
   const formatLabel = (format: string) =>
     format === "in_person"
       ? copy.sessionFormatInPerson
@@ -171,6 +156,7 @@ export default async function TrainerDetailPage({
             status: "ACTIVE",
             expiresAt: { gt: new Date() },
             remaining: { gt: 0 },
+            OR: [{ validFrom: null }, { validFrom: { lte: new Date() } }],
           },
           select: { id: true, offeringId: true, title: true, remaining: true },
         })
@@ -445,6 +431,8 @@ export default async function TrainerDetailPage({
                     className="rounded-2xl bg-white p-5 text-[#10233f]"
                   >
                     <p className="font-black">{plan.name}</p>
+                    <p className="text-sm font-semibold">{plan.lessonTitle} · {plan.sessionsPerMonth}{locale === "ja" ? "回／月" : " lessons / month"}</p>
+                    <p className="text-xs text-slate-500">{locale === "ja" ? "支払い済みの請求期間内に予約・受講できます。未使用回数の繰り越しはありません。" : "Book and attend within the paid billing period. Unused credits do not roll over."}</p>
                     <p className="mt-2 min-h-10 text-sm text-slate-500">
                       {plan.description || copy.trainerNoDescription}
                     </p>
@@ -588,27 +576,6 @@ export default async function TrainerDetailPage({
             />
           ) : null}
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-6">
-            <h2 className="flex items-center gap-2 text-lg font-black">
-              <Heart className="size-5 text-blue-600" />
-              {ui.premium}
-            </h2>
-            <p className="mt-2 text-sm text-slate-500">
-              {hasAccess
-                ? copy.subscriptionPremiumGranted
-                : copy.subscriptionPremiumLockedBody}
-            </p>
-            {hasAccess && accessiblePosts.length ? (
-              <div className="mt-4 space-y-3">
-                {accessiblePosts.map((post) => (
-                  <article key={post.id} className="rounded-xl bg-slate-50 p-4">
-                    <p className="font-bold">{post.title}</p>
-                    <p className="mt-1 text-sm text-slate-500">{post.body}</p>
-                  </article>
-                ))}
-              </div>
-            ) : null}
-          </section>
         </div>
 
         <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
