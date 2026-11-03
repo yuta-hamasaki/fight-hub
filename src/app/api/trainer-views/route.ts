@@ -31,16 +31,10 @@ export async function POST(request: Request) {
     });
   }
   const day = new Date().toISOString().slice(0, 10);
-  await prisma.profileView.upsert({
-    where: {
-      trainerProfileId_visitorKey_day: {
-        trainerProfileId: trainerId,
-        visitorKey,
-        day,
-      },
-    },
-    create: { trainerProfileId: trainerId, visitorKey, day },
-    update: {},
+  // Skip duplicate daily views atomically, including concurrent requests.
+  await prisma.profileView.createMany({
+    data: [{ trainerProfileId: trainerId, visitorKey, day }],
+    skipDuplicates: true,
   });
   return new Response(null, { status: 204 });
 }
